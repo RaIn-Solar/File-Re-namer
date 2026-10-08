@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   pickPhotoFolder: () => ipcRenderer.invoke('dialog:photoFolder'),
   pickUploadRoot: () => ipcRenderer.invoke('dialog:uploadRoot'),
   scan: (paths) => ipcRenderer.invoke('photos:scan', paths),
+  preview: (file) => ipcRenderer.invoke('photos:preview', file),
   plan: (photos, job) => ipcRenderer.invoke('plan', { photos, job }),
   upload: (photos, job) => ipcRenderer.invoke('upload', { photos, job }),
   onProgress: (cb) => ipcRenderer.on('upload:progress', (_e, p) => cb(p)),

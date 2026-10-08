@@ -95,7 +95,12 @@ function render() {
       <div class="date ${off || approx ? 'warn' : ''}"></div><div class="name"></div></div>`;
     const img = document.createElement('img');
     img.loading = 'lazy'; img.src = p.url; img.alt = '';
-    img.onerror = () => { el.querySelector('.img').textContent = 'No preview (' + p.ext + ')'; };
+    const noPreview = () => { el.querySelector('.img').textContent = 'No preview (' + p.ext + ')'; };
+    img.onerror = async () => {
+      img.onerror = noPreview;
+      const url = await window.api.preview(p.path);
+      if (url) img.src = url; else noPreview();
+    };
     el.querySelector('.img').appendChild(img);
     el.querySelector('.tag').textContent = p.category ? catLabel(p.category) + (p.area ? ' · ' + p.area : '') : 'Unlabeled';
     el.querySelector('.date').textContent = (d || 'No date') + (p.dateOverride ? ' (set)' : approx ? ' (file date?)' : '') + (off ? ' ⚠' : '');

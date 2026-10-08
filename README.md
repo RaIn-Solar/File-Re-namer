@@ -21,4 +21,10 @@ npm start        # run the app
 npm test         # unit tests for naming, dates, copying
 npm run dist     # build Windows installer / macOS dmg
 ```
-Known limits: HEIC photos (iPhone default) are renamed correctly but show "No preview"; upload currently targets a folder, not a database/API.
+Known limits: upload currently targets a folder, not a database/API. iPhone HEIC photos are converted to cached JPEG previews on demand (the first view of a big batch takes a moment); the originals are untouched.
+
+## Automatic builds
+`.github/workflows/build.yml` runs the tests on every push/PR and builds a Windows installer (`.exe`) and macOS `.dmg`.
+- **Try a build:** Actions tab → *Build installers* → *Run workflow*; download the installers from the run's *Artifacts*.
+- **Publish a release:** bump `version` in `package.json`, then `git tag v0.2.0 && git push origin v0.2.0`. The installers are attached to a GitHub Release automatically.
+- Builds are **unsigned**: Windows SmartScreen shows "unknown publisher" (More info → Run anyway) and on a Mac the first launch needs right-click → Open. Code-signing certificates (Windows) and an Apple Developer ID (Mac) remove this; add them as repo secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, …) and drop `CSC_IDENTITY_AUTO_DISCOVERY`.

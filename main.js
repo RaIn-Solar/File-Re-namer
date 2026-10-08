@@ -6,6 +6,7 @@ const { pathToFileURL } = require('node:url');
 const { readDate, isImage } = require('./src/exif');
 const { planNames, summarizeDates } = require('./src/naming');
 const { upload } = require('./src/organizer');
+const { needsPreview, previewFor } = require('./src/preview');
 const { sanitize } = require('./src/naming');
 
 const userFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -79,6 +80,11 @@ ipcMain.handle('photos:scan', async (_e, paths) => {
     });
   }
   return photos;
+});
+
+ipcMain.handle('photos:preview', (_e, file) => {
+  if (!needsPreview(file)) return null;
+  return previewFor(file, path.join(app.getPath('userData'), 'previews')).catch(() => null);
 });
 
 ipcMain.handle('plan', (_e, { photos, job }) => {
