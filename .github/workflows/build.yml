@@ -41,10 +41,32 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build installer
-        run: npx electron-builder ${{ matrix.args }} --publish never
+        shell: bash
+        run: |
+          EXTRA=""
+          export CSC_IDENTITY_AUTO_DISCOVERY=false
+          if [ "${{ matrix.args }}" = "--win" ]; then
+            if [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$AZURE_SIGN_ENDPOINT" ]; then
+              echo "Signing Windows installer with Azure Trusted Signing"
+              EXTRA="-c.win.azureSignOptions.endpoint=$AZURE_SIGN_ENDPOINT -c.win.azureSignOptions.codeSigningAccountName=$AZURE_SIGN_ACCOUNT -c.win.azureSignOptions.certificateProfileName=$AZURE_SIGN_PROFILE"
+            elif [ -n "$WIN_CSC_LINK" ]; then
+              echo "Signing Windows installer with code signing certificate"
+              export CSC_LINK="$WIN_CSC_LINK" CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"
+            else
+              echo "No Windows signing secrets set; building an unsigned installer"
+            fi
+          fi
+          npx electron-builder ${{ matrix.args }} --publish never $EXTRA
         env:
-          # Unsigned builds for now; see README for code signing.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Windows signing is optional: leave these secrets unset for an unsigned build.
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGN_ENDPOINT: ${{ secrets.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ secrets.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ secrets.AZURE_SIGN_PROFILE }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v4
         with:
           name: installer-${{ matrix.os }}

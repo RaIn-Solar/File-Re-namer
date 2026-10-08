@@ -8,7 +8,7 @@ const today = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'
 const catLabel = (id) => (state.config.categories.find((c) => c.id === id) || {}).label;
 
 // Each photo type gets its own color (config `color`, with a distinct fallback palette).
-const FALLBACK_COLORS = ['#2563EB', '#0891B2', '#F59E0B', '#7C3AED', '#DC2626', '#16A34A', '#DB2777', '#64748B'];
+const FALLBACK_COLORS = ['#2563EB', '#0891B2', '#F59E0B', '#7C3AED', '#FF1A1A', '#16A34A', '#F9A8D4', '#64748B'];
 function catColor(id) {
   const i = state.config.categories.findIndex((c) => c.id === id);
   if (i < 0) return null;
@@ -452,14 +452,14 @@ async function completeJob() {
 
 // ---------- tutorial ----------
 const TOUR_STEPS = [
-  { title: 'Welcome to Job Photo Organizer', text: 'This 1-minute tour shows how to turn a pile of phone photos into correctly named, correctly filed pictures for the customer record. Use Next, the arrow keys, or Skip.' },
+  { title: 'Welcome to Job Photo Organizer', text: 'This 1-minute tour shows how to turn a pile of phone photos into correctly named, correctly filed pictures for the customer record. Use Next or the arrow keys to flip between steps or press Skip to close this tutorial.' },
   { target: '#jobSummary', title: 'The job details', text: 'Every job starts with a small window asking for the customer name, job name, visit date and the customer files folder. They are shown here, and they become part of every file name. Tick “Remember this job” for work that takes several days, then pick it from the list next time — the date always starts as today.' },
   { target: '#jobBtns', title: 'New job, Edit job, Mark complete', text: '“New job” starts a fresh set of renames for a different job and clears the current photos. “Edit job” fixes a typo without clearing anything. When all the work is finished, “Mark job complete” deletes the saved job from the program.' },
   { target: '#addButtons', title: 'Add the photos', text: 'Add photos or a whole folder, or just drag them into the window. For a phone, plug it in and browse to its DCIM / Camera folder, or copy the pictures to the computer first. The app reads the dates in the photos and asks you to confirm which date to use.' },
-  { target: '#grid', title: 'Your photos', text: 'Click a photo to select it; Shift-click selects a range and Ctrl-click adds one. Each card shows its label and date, and an orange date means it is not the visit date.' },
+  { target: '#grid', title: 'Your photos', text: 'Your photos only show up here after you drag and drop them into this area (or add them with the buttons above) — the app can’t see photos that are still on your phone or elsewhere on the computer. Once they are here, click a photo to select it; Shift-click selects a range and Ctrl-click adds one. Each card shows its label and date, and an orange date means it is not the visit date.' },
   { target: '#secCategory', title: '1. What are they for?', text: 'With photos selected, pick the type — Sales Walkthrough, Inspection, and so on — or press its number key. Every type has its own color, shown on its button and on the photos you label. The type is built into the new file name, so the same spot photographed for two purposes never gets mixed up.' },
   { target: '#secArea', title: '2. Where or what? (optional)', text: 'Add an area such as Roof, Meter or Inverter and click “Apply to selected”. It is added to the file name too.' },
-  { target: '#secDates', title: '3. Check the dates', text: 'Dates come from the photo itself — the camera, the file name, or the file date. Any date that is not the visit date is flagged here. Fix a photo’s date with “Set on selected”, or use the visit date in one click.' },
+  { target: '#secDates', title: '3. Check the dates', text: 'Dates come from the photo itself — the camera, the file name, or the file date. Any date that is not the visit date is flagged here. Fix a photo’s date with “Set for selected”, or use the visit date in one click.' },
   { target: '#review', title: 'Review & rename', text: 'When every photo has a type, review the old → new names, then “Rename & upload” copies them into the customer’s folder. Your originals are never changed.' },
   { target: '#tutorialBtn', pulse: true, doneLabel: 'Got it', title: 'Want to see this again?', text: 'That’s the whole process! You can replay this tutorial any time with the Tutorial button, highlighted here at the top right.' },
 ];

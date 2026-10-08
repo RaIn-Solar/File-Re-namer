@@ -34,7 +34,7 @@
       "label": "Issue / Damage",
       "short": "Issue",
       "key": "5",
-      "color": "#DC2626"
+      "color": "#FF1A1A"
     },
     {
       "id": "completed-system",
@@ -48,7 +48,7 @@
       "label": "Service / Repair",
       "short": "Service",
       "key": "7",
-      "color": "#DB2777"
+      "color": "#F9A8D4"
     }
   ],
   "areaSuggestions": [
