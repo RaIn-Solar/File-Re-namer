@@ -1,0 +1,14 @@
+{
+  "uploadRoot": "",
+  "categories": [
+    { "id": "sales-walkthrough", "label": "Sales Walkthrough", "short": "SalesWalk", "key": "1" },
+    { "id": "site-survey",       "label": "Site Survey",       "short": "Survey",    "key": "2" },
+    { "id": "install-progress",  "label": "Install Progress",  "short": "Install",   "key": "3" },
+    { "id": "inspection",        "label": "Inspection",        "short": "Inspection","key": "4" },
+    { "id": "issue-damage",      "label": "Issue / Damage",    "short": "Issue",     "key": "5" },
+    { "id": "completed-system",  "label": "Completed System",  "short": "Complete",  "key": "6" },
+    { "id": "service-repair",    "label": "Service / Repair",  "short": "Service",   "key": "7" }
+  ],
+  "areaSuggestions": ["Roof", "Electrical Panel", "Meter", "Inverter", "Array", "Attic", "Exterior", "Interior", "Equipment Label", "Damage"],
+  "imageExtensions": [".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tif", ".tiff"]
+}
