@@ -8,6 +8,7 @@ const { planNames, summarizeDates } = require('./src/naming');
 const { upload } = require('./src/organizer');
 const { needsPreview, previewFor } = require('./src/preview');
 const { sanitize } = require('./src/naming');
+const { createStore } = require('./src/jobs');
 
 const userFile = () => path.join(app.getPath('userData'), 'config.json');
 
@@ -41,11 +42,17 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 980, minHeight: 640,
     title: 'Job Photo Organizer',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   win.removeMenu();
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
+
+const jobStore = () => createStore(path.join(app.getPath('userData'), 'saved-jobs.json'));
+ipcMain.handle('jobs:list', () => jobStore().list());
+ipcMain.handle('jobs:remember', (_e, job) => jobStore().remember(job));
+ipcMain.handle('jobs:forget', (_e, id) => jobStore().forget(id));
 
 ipcMain.handle('config:get', () => loadConfig());
 ipcMain.handle('config:set', (_e, patch) => { saveConfig(patch); return loadConfig(); });
@@ -96,12 +103,12 @@ ipcMain.handle('plan', (_e, { photos, job }) => {
 ipcMain.handle('upload', async (_e, { photos, job }) => {
   const cfg = loadConfig();
   const { plans, problems } = planNames(photos, job, cfg.categories);
-  if (problems.length) throw new Error('Some photos are not ready (category, date or customer missing).');
+  if (problems.length) throw new Error('Some photos are not ready (customer, job name, category or date missing).');
   const byId = new Map(photos.map((p) => [p.id, p]));
   const items = plans.map((pl) => ({ ...pl, source: byId.get(pl.id).path, area: byId.get(pl.id).area || '' }));
   return upload(items, {
     root: job.uploadRoot,
-    customerFolder: [sanitize(job.customer), sanitize(job.jobNumber)].filter(Boolean).join('_'),
+    customerFolder: [sanitize(job.customer), sanitize(job.jobName)].filter(Boolean).join('_'),
     onProgress: (done, total) => win && win.webContents.send('upload:progress', { done, total }),
   });
 });

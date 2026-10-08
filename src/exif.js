@@ -28,7 +28,24 @@ async function heicFallback(filePath, exifr) {
   return null;
 }
 
-// Returns { takenDate: 'YYYY-MM-DD'|null, dateSource: 'camera'|'file'|'none', takenAt: ISO|null }
+// Finds a date written in a file name, e.g. IMG_20261008_101500.jpg,
+// PXL_20261008_..., 2026-10-08 10.15.00.jpg, IMG-20261008-WA0001.jpg.
+// Returns 'YYYY-MM-DD' or null. Impossible dates and dates in the future are ignored.
+const NAME_DATE = /(?<!\d)(20\d\d)[-_. ]?(\d\d)[-_. ]?(\d\d)(?=\D|\d{6}(?!\d)|$)/g;
+function dateFromName(name, now = new Date()) {
+  const base = path.basename(String(name), path.extname(String(name)));
+  for (const m of base.matchAll(NAME_DATE)) {
+    const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) continue; // e.g. 20261345
+    if (dt.getTime() > now.getTime() + 24 * 3600 * 1000) continue;                          // future = not a date
+    return ymd(dt);
+  }
+  return null;
+}
+
+// Returns { takenDate: 'YYYY-MM-DD'|null, dateSource: 'camera'|'filename'|'file'|'none', takenAt: ISO|null }
+// Order of trust: camera (EXIF) > date in the file name > file modified date.
 async function readDate(filePath) {
   try {
     const exifr = require('exifr');
@@ -38,7 +55,9 @@ async function readDate(filePath) {
     if (d instanceof Date && !isNaN(d)) {
       return { takenDate: ymd(d), dateSource: 'camera', takenAt: d.toISOString() };
     }
-  } catch { /* fall through to file date */ }
+  } catch { /* fall through */ }
+  const named = dateFromName(filePath);
+  if (named) return { takenDate: named, dateSource: 'filename', takenAt: named + 'T00:00:00' };
   try {
     const st = await fs.promises.stat(filePath);
     const d = st.mtime;
@@ -52,4 +71,4 @@ function isImage(file, extensions) {
   return extensions.includes(path.extname(file).toLowerCase());
 }
 
-module.exports = { readDate, isImage, ymd };
+module.exports = { readDate, dateFromName, isImage, ymd };

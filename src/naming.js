@@ -25,14 +25,14 @@ function effectiveDate(photo) {
 
 // Plans the final file name for every included photo.
 //   photos: [{ id, ext, category (category id), area, takenDate, dateOverride, include, sortKey }]
-//   job:    { customer, jobNumber }
+//   job:    { customer, jobName }
 //   categories: config categories
 // Returns [{ id, newName, folder, date, categoryLabel }] and problems[] describing
 // photos that cannot be named yet.
 function planNames(photos, job, categories) {
   const catById = new Map(categories.map((c) => [c.id, c]));
   const customer = sanitize(job.customer);
-  const jobNo = sanitize(job.jobNumber);
+  const jobName = sanitize(job.jobName);
   const problems = [];
   const plans = [];
   const counters = new Map();
@@ -47,13 +47,14 @@ function planNames(photos, job, categories) {
     if (!cat) { problems.push({ id: p.id, reason: 'No category chosen' }); continue; }
     if (!date) { problems.push({ id: p.id, reason: 'No date' }); continue; }
     if (!customer) { problems.push({ id: p.id, reason: 'No customer name' }); continue; }
+    if (!jobName) { problems.push({ id: p.id, reason: 'No job name' }); continue; }
 
     const area = sanitize(p.area);
     const groupKey = [date, cat.id, area].join('|');
     const seq = (counters.get(groupKey) || 0) + 1;
     counters.set(groupKey, seq);
 
-    const parts = [customer, jobNo, date, cat.short || sanitize(cat.label), area, pad(seq)].filter(Boolean);
+    const parts = [customer, jobName, date, cat.short || sanitize(cat.label), area, pad(seq)].filter(Boolean);
     plans.push({
       id: p.id,
       newName: parts.join('_') + String(p.ext || '').toLowerCase(),

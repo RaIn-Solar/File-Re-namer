@@ -16,6 +16,7 @@
       "preload.js",
       "src/**",
       "renderer/**",
+      "build/icon.png",
       "config.default.json"
     ],
     "win": {
@@ -23,7 +24,8 @@
     },
     "mac": {
       "target": "dmg"
-    }
+    },
+    "icon": "build/icon.png"
   },
   "dependencies": {
     "exifr": "7.1.3",

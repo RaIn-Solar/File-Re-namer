@@ -4,6 +4,9 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   getConfig: () => ipcRenderer.invoke('config:get'),
   setConfig: (patch) => ipcRenderer.invoke('config:set', patch),
+  jobsList: () => ipcRenderer.invoke('jobs:list'),
+  jobsRemember: (job) => ipcRenderer.invoke('jobs:remember', job),
+  jobsForget: (id) => ipcRenderer.invoke('jobs:forget', id),
   pickPhotos: () => ipcRenderer.invoke('dialog:photos'),
   pickPhotoFolder: () => ipcRenderer.invoke('dialog:photoFolder'),
   pickUploadRoot: () => ipcRenderer.invoke('dialog:uploadRoot'),
