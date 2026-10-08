@@ -1,0 +1,26 @@
+{
+  "name": "job-photo-organizer",
+  "version": "0.1.0",
+  "description": "Categorize, date-check, rename and file job-site photos for the customer record.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.eccsolar.jobphotoorganizer",
+    "productName": "Job Photo Organizer",
+    "files": ["main.js", "preload.js", "src/**", "renderer/**", "config.default.json"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" }
+  },
+  "dependencies": {
+    "exifr": "7.1.3"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "license": "UNLICENSED"
+}
