@@ -8,6 +8,7 @@ const { planNames, summarizeDates } = require('./src/naming');
 const { upload } = require('./src/organizer');
 const { needsPreview, previewFor } = require('./src/preview');
 const { sanitize } = require('./src/naming');
+const { createStore } = require('./src/jobs');
 
 const userFile = () => path.join(app.getPath('userData'), 'config.json');
 
@@ -47,6 +48,11 @@ function createWindow() {
   win.removeMenu();
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
+
+const jobStore = () => createStore(path.join(app.getPath('userData'), 'saved-jobs.json'));
+ipcMain.handle('jobs:list', () => jobStore().list());
+ipcMain.handle('jobs:remember', (_e, job) => jobStore().remember(job));
+ipcMain.handle('jobs:forget', (_e, id) => jobStore().forget(id));
 
 ipcMain.handle('config:get', () => loadConfig());
 ipcMain.handle('config:set', (_e, patch) => { saveConfig(patch); return loadConfig(); });

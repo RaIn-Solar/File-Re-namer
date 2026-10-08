@@ -57,3 +57,31 @@ test('readDate prefers EXIF DateTimeOriginal', async () => {
   assert.equal(r.dateSource, 'camera');
   assert.equal(r.takenDate, '2025-06-15');
 });
+
+const { dateFromName } = require('../src/exif');
+const NOW = new Date('2026-10-08T12:00:00');
+
+test('dateFromName understands common phone / app file names', () => {
+  assert.equal(dateFromName('IMG_20261006_101500.jpg', NOW), '2026-10-06');
+  assert.equal(dateFromName('PXL_20261006_101500123.jpg', NOW), '2026-10-06');
+  assert.equal(dateFromName('IMG-20261006-WA0001.jpeg', NOW), '2026-10-06');
+  assert.equal(dateFromName('20261006101500.jpg', NOW), '2026-10-06');
+  assert.equal(dateFromName('2026-10-06 10.15.00.png', NOW), '2026-10-06');
+  assert.equal(dateFromName('/some/2026-dir/Screenshot_2026-10-06-10-15.png', NOW), '2026-10-06');
+});
+
+test('dateFromName ignores things that are not dates', () => {
+  assert.equal(dateFromName('IMG_1234.jpg', NOW), null);
+  assert.equal(dateFromName('IMG_20261345_1.jpg', NOW), null);   // month 13
+  assert.equal(dateFromName('IMG_20260231.jpg', NOW), null);     // Feb 31
+  assert.equal(dateFromName('IMG_20271001.jpg', NOW), null);     // future
+  assert.equal(dateFromName('scan_120261006999.jpg', NOW), null);// digits run on
+});
+
+test('readDate uses a date in the file name when there is no EXIF, ahead of the file date', async () => {
+  const d = tmp(), f = path.join(d, 'IMG_20250304_101500.jpg');
+  fs.writeFileSync(f, 'not a jpeg');
+  const r = await readDate(f);
+  assert.equal(r.takenDate, '2025-03-04');
+  assert.equal(r.dateSource, 'filename');
+});

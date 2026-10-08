@@ -15,6 +15,7 @@
     <span id="jobBtns" class="group">
       <button id="editJob" type="button">Edit job</button>
       <button id="newJob" class="primary" type="button">New job</button>
+      <button id="completeJob" type="button" title="Finished with this job? Removes its saved name from the program">Mark job complete</button>
     </span>
     <button id="tutorialBtn" type="button" title="Walk through the app again">? Tutorial</button>
   </div>
@@ -77,6 +78,9 @@
   <form id="jobForm" class="dialog job-dialog" novalidate>
     <h2 id="jobTitle">Set up the job</h2>
     <p id="jobIntro" class="hint">These details go into every file name and decide which folder the photos are filed in.</p>
+    <label id="savedWrap" hidden><span>Continue a saved job</span>
+      <select id="savedJobs"></select>
+    </label>
     <label><span>Customer name <span class="req">*</span></span>
       <input id="customer" placeholder="e.g. Smith John" autocomplete="off">
     </label>
@@ -89,11 +93,31 @@
     <div class="field"><span>Customer files folder <span class="req">*</span></span>
       <span class="folder"><span id="rootLabel">Not set</span><button id="pickRoot" type="button">Choose…</button></span>
     </div>
+    <label class="check"><input id="remember" type="checkbox">
+      <span>Remember this job for next time <small>(for jobs that take several days)</small></span></label>
+    <p class="hint small">Only the customer and job name are saved, never photos or dates. The date always starts as today. Use “Mark job complete” to delete the saved job.</p>
     <div id="jobError" class="status err" role="alert"></div>
     <div class="actions">
       <button id="jobCancel" type="button">Cancel</button>
       <button id="jobSubmit" class="primary" type="submit">Start</button>
     </div>
+  </form>
+</div>
+
+<!-- Shown after photos are added, to confirm which date to use -->
+<div id="dateModal" class="modal" hidden>
+  <form id="dateForm" class="dialog job-dialog">
+    <h2>Confirm the date</h2>
+    <p id="dateIntro" class="hint"></p>
+    <table id="dateTable" class="datetable"></table>
+    <fieldset class="choices">
+      <label class="radio"><input type="radio" name="dateChoice" value="found" checked><span id="optFound"></span></label>
+      <label class="radio"><input type="radio" name="dateChoice" value="visit"><span id="optVisit"></span></label>
+      <label class="radio"><input type="radio" name="dateChoice" value="custom"><span>Use this date for all of them:</span>
+        <input id="customDate" type="date"></label>
+    </fieldset>
+    <div id="dateError" class="status err" role="alert"></div>
+    <div class="actions"><button id="dateOk" class="primary" type="submit">Confirm date</button></div>
   </form>
 </div>
 
