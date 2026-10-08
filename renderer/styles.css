@@ -7,8 +7,6 @@ header { background:var(--panel); border-bottom:1px solid var(--line); padding:1
 h1 { font-size:17px; margin:0; }
 h2 { font-size:13px; margin:18px 0 6px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
 .opt { text-transform:none; font-weight:400; }
-.job { display:flex; gap:14px; flex-wrap:wrap; }
-.job label { display:flex; flex-direction:column; font-size:12px; color:var(--muted); gap:2px; }
 input { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); }
 input:focus, button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
 button { font:inherit; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--ink); cursor:pointer; }
@@ -62,3 +60,43 @@ td.new { font-family:ui-monospace, Consolas, monospace; font-size:12px; }
 .actions { display:flex; gap:8px; justify-content:flex-end; }
 .callout { padding:8px 10px; border-radius:6px; background:#b4530922; border:1px solid var(--warn); margin-bottom:8px; }
 .fail { color:var(--bad); } .okc { color:var(--ok); }
+
+/* ---- top nav ---- */
+header { gap:16px; }
+.brand { display:flex; align-items:center; gap:10px; }
+.logo { width:30px; height:30px; border-radius:7px; }
+.summary { flex:1; min-width:0; display:flex; gap:8px 18px; flex-wrap:wrap; font-size:13px; }
+.summary .none { color:var(--muted); }
+.summary .item { display:flex; flex-direction:column; min-width:0; }
+.summary .item small { font-size:11px; color:var(--muted); }
+.summary .item span { max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.navbtns { display:flex; gap:8px; align-items:center; }
+.group { display:inline-flex; gap:8px; }
+.modal { z-index:500; }
+
+/* ---- job dialog ---- */
+.job-dialog { max-width:480px; gap:2px; }
+.job-dialog > label, .job-dialog > .field { display:flex; flex-direction:column; gap:3px; margin-top:12px; font-size:13px; color:var(--muted); }
+.job-dialog input { width:100%; color:var(--ink); }
+.job-dialog input.bad { border-color:var(--bad); }
+.job-dialog .hint { color:var(--muted); font-size:13px; margin:0; }
+.job-dialog .folder { color:var(--ink); }
+.job-dialog #rootLabel { flex:1; max-width:none; direction:ltr; text-align:left; }
+.req { color:var(--bad); }
+.job-dialog .actions { margin-top:16px; }
+.job-dialog .status { min-height:20px; margin:8px 0 0; }
+
+/* ---- guided tour ---- */
+#tour { position:fixed; inset:0; z-index:1000; }
+#tour[hidden] { display:none; }
+#tour.dim { background:rgba(0,0,0,.65); }
+#tourSpot { position:fixed; border-radius:8px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,.65); outline:3px solid var(--accent); transition:top .25s, left .25s, width .25s, height .25s; }
+#tour.dim #tourSpot { display:none; }
+#tourSpot.pulse { animation:tourPulse 1.1s ease-in-out infinite; }
+@keyframes tourPulse { 0%,100% { outline-offset:0; } 50% { outline-offset:8px; } }
+@media (prefers-reduced-motion: reduce) { #tourSpot.pulse { animation:none; } #tourSpot { transition:none; } }
+#tourCard { position:fixed; width:360px; max-width:calc(100vw - 24px); background:var(--panel); color:var(--ink); border-radius:12px; padding:16px 18px; box-shadow:0 12px 40px #0008; }
+#tourCard h3 { margin:2px 0 6px; font-size:17px; }
+#tourCard p { margin:0 0 14px; }
+#tourCard .actions { align-items:center; }
+#tourStep { font-size:12px; color:var(--muted); }

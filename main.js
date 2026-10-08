@@ -41,6 +41,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 980, minHeight: 640,
     title: 'Job Photo Organizer',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   win.removeMenu();
@@ -96,12 +97,12 @@ ipcMain.handle('plan', (_e, { photos, job }) => {
 ipcMain.handle('upload', async (_e, { photos, job }) => {
   const cfg = loadConfig();
   const { plans, problems } = planNames(photos, job, cfg.categories);
-  if (problems.length) throw new Error('Some photos are not ready (category, date or customer missing).');
+  if (problems.length) throw new Error('Some photos are not ready (customer, job name, category or date missing).');
   const byId = new Map(photos.map((p) => [p.id, p]));
   const items = plans.map((pl) => ({ ...pl, source: byId.get(pl.id).path, area: byId.get(pl.id).area || '' }));
   return upload(items, {
     root: job.uploadRoot,
-    customerFolder: [sanitize(job.customer), sanitize(job.jobNumber)].filter(Boolean).join('_'),
+    customerFolder: [sanitize(job.customer), sanitize(job.jobName)].filter(Boolean).join('_'),
     onProgress: (done, total) => win && win.webContents.send('upload:progress', { done, total }),
   });
 });

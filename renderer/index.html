@@ -4,26 +4,29 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'">
 <title>Job Photo Organizer</title>
+<link rel="icon" href="icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header>
-  <h1>Job Photo Organizer</h1>
-  <div class="job">
-    <label>Customer <input id="customer" placeholder="Smith John" autocomplete="off"></label>
-    <label>Job # <input id="jobNumber" placeholder="optional" autocomplete="off" size="10"></label>
-    <label>Visit date <input id="visitDate" type="date"></label>
-    <label>Customer files folder
-      <span class="folder"><span id="rootLabel">Not set</span><button id="pickRoot" type="button">Choose…</button></span>
-    </label>
+  <div class="brand"><img class="logo" src="icon.png" alt=""><h1>Job Photo Organizer</h1></div>
+  <div id="jobSummary" class="summary"></div>
+  <div class="navbtns">
+    <span id="jobBtns" class="group">
+      <button id="editJob" type="button">Edit job</button>
+      <button id="newJob" class="primary" type="button">New job</button>
+    </span>
+    <button id="tutorialBtn" type="button" title="Walk through the app again">? Tutorial</button>
   </div>
 </header>
 
 <main>
   <section id="photos">
     <div class="toolbar">
-      <button id="addPhotos" class="primary" type="button">Add photos…</button>
-      <button id="addFolder" type="button">Add folder…</button>
+      <span id="addButtons" class="group">
+        <button id="addPhotos" class="primary" type="button">Add photos…</button>
+        <button id="addFolder" type="button">Add folder…</button>
+      </span>
       <button id="clearAll" type="button">Clear all</button>
       <span class="spacer"></span>
       <button id="selectAll" type="button">Select all</button>
@@ -39,22 +42,28 @@
   </section>
 
   <aside>
-    <h2>1. What are these photos for?</h2>
-    <p class="hint">Select photos, then pick a type (or press its number).</p>
-    <div id="categories" class="cats"></div>
-
-    <h2>2. Where / what? <span class="opt">(optional)</span></h2>
-    <input id="area" list="areas" placeholder="e.g. Roof, Meter, Inverter" autocomplete="off">
-    <datalist id="areas"></datalist>
-    <button id="applyArea" type="button">Apply to selected</button>
-
-    <h2>3. Check the dates</h2>
-    <div id="dates" class="dates"></div>
-    <div class="row">
-      <input id="overrideDate" type="date">
-      <button id="applyDate" type="button">Set on selected</button>
+    <div id="secCategory">
+      <h2>1. What are these photos for?</h2>
+      <p class="hint">Select photos, then pick a type (or press its number).</p>
+      <div id="categories" class="cats"></div>
     </div>
-    <button id="useVisit" type="button">Use visit date on selected</button>
+
+    <div id="secArea">
+      <h2>2. Where / what? <span class="opt">(optional)</span></h2>
+      <input id="area" list="areas" placeholder="e.g. Roof, Meter, Inverter" autocomplete="off">
+      <datalist id="areas"></datalist>
+      <button id="applyArea" type="button">Apply to selected</button>
+    </div>
+
+    <div id="secDates">
+      <h2>3. Check the dates</h2>
+      <div id="dates" class="dates"></div>
+      <div class="row">
+        <input id="overrideDate" type="date">
+        <button id="applyDate" type="button">Set on selected</button>
+      </div>
+      <button id="useVisit" type="button">Use visit date on selected</button>
+    </div>
 
     <div class="spacer-v"></div>
     <button id="exclude" type="button">Remove selected from batch</button>
@@ -62,6 +71,31 @@
     <div id="status" class="status"></div>
   </aside>
 </main>
+
+<!-- Job details: shown at startup and for "New job" / "Edit job" -->
+<div id="jobModal" class="modal" hidden>
+  <form id="jobForm" class="dialog job-dialog" novalidate>
+    <h2 id="jobTitle">Set up the job</h2>
+    <p id="jobIntro" class="hint">These details go into every file name and decide which folder the photos are filed in.</p>
+    <label><span>Customer name <span class="req">*</span></span>
+      <input id="customer" placeholder="e.g. Smith John" autocomplete="off">
+    </label>
+    <label><span>Job name <span class="req">*</span></span>
+      <input id="jobName" placeholder="e.g. Roof Replacement or 123 Main St" autocomplete="off">
+    </label>
+    <label><span>Visit date <span class="req">*</span></span>
+      <input id="visitDate" type="date">
+    </label>
+    <div class="field"><span>Customer files folder <span class="req">*</span></span>
+      <span class="folder"><span id="rootLabel">Not set</span><button id="pickRoot" type="button">Choose…</button></span>
+    </div>
+    <div id="jobError" class="status err" role="alert"></div>
+    <div class="actions">
+      <button id="jobCancel" type="button">Cancel</button>
+      <button id="jobSubmit" class="primary" type="submit">Start</button>
+    </div>
+  </form>
+</div>
 
 <div id="modal" class="modal" hidden>
   <div class="dialog">
@@ -73,6 +107,23 @@
     </div>
   </div>
 </div>
+
+<!-- Guided tour -->
+<div id="tour" hidden>
+  <div id="tourSpot"></div>
+  <div id="tourCard" role="dialog" aria-live="polite">
+    <div id="tourStep" class="hint"></div>
+    <h3 id="tourTitle"></h3>
+    <p id="tourText"></p>
+    <div class="actions">
+      <button id="tourSkip" type="button">Skip</button>
+      <span class="spacer"></span>
+      <button id="tourBack" type="button">Back</button>
+      <button id="tourNext" class="primary" type="button">Next</button>
+    </div>
+  </div>
+</div>
+<script src="tour.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
