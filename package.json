@@ -6,7 +6,9 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "build:mobile": "node scripts/build-mobile.js",
+    "serve:mobile": "node scripts/build-mobile.js && npx --yes http-server dist-mobile -p 8080"
   },
   "build": {
     "appId": "com.eccsolar.jobphotoorganizer",

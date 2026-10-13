@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<title>Job Photos</title>
+</head>
+<body>
+<header>
+  <h1>Job Photos</h1>
+  <button id="settingsBtn" class="ghost" aria-label="Settings">Settings</button>
+</header>
+
+<main>
+  <section id="setup" class="card" hidden>
+    <h2>One-time setup</h2>
+    <p id="setupMsg"></p>
+  </section>
+
+  <section class="card">
+    <h2>1. Job</h2>
+    <label>Saved jobs
+      <select id="savedJobs"><option value="">New job…</option></select>
+    </label>
+    <label>Customer name <input id="customer" autocomplete="off" placeholder="Smith John"></label>
+    <label>Job name <input id="jobName" autocomplete="off" placeholder="Roof Replacement"></label>
+    <label>Photo date <input id="date" type="date"></label>
+    <div class="row">
+      <button id="saveJob" class="ghost">Remember this job</button>
+      <button id="forgetJob" class="ghost" hidden>Job complete (forget)</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. What are the photos for?</h2>
+    <div id="types" class="types"></div>
+    <label>Area (optional) <input id="area" autocomplete="off" placeholder="Roof, Meter…"></label>
+    <div id="areaChips" class="chips"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Take or choose photos</h2>
+    <p class="hint" id="ready">Fill in the job and pick a type.</p>
+    <div class="row">
+      <button id="takeBtn" class="primary" disabled>Take photo</button>
+      <button id="pickBtn" class="primary alt" disabled>Choose from gallery</button>
+    </div>
+    <input id="camera" type="file" accept="image/*" capture="environment" hidden>
+    <input id="gallery" type="file" accept="image/*" multiple hidden>
+    <ul id="log" class="log"></ul>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2>Settings</h2>
+    <label>Google Drive folder (link or ID)
+      <input id="rootFolder" autocomplete="off" placeholder="https://drive.google.com/drive/folders/…">
+    </label>
+    <label>Google OAuth client ID
+      <input id="clientId" autocomplete="off" placeholder="1234-abc.apps.googleusercontent.com">
+    </label>
+    <p class="hint">Photos go to <b>folder / Customer_Job / Type /</b>. Nothing is saved on this phone.</p>
+    <div class="row">
+      <button value="save" id="saveSettings" class="primary">Save</button>
+      <button value="cancel" class="ghost">Cancel</button>
+    </div>
+    <button type="button" id="signOut" class="ghost">Sign out of Google</button>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="naming.js"></script>
+<script src="drive.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
+</body>
+</html>
