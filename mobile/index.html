@@ -29,7 +29,7 @@
       <b id="customerName"></b> <button id="changeCustomer" class="ghost">Change</button>
     </div>
     <div id="customerPicker">
-      <input id="customerSearch" type="search" autocomplete="off" placeholder="Search customer (Last, First)">
+      <input id="customerSearch" type="search" autocomplete="off" placeholder="Start typing a customer name">
       <ul id="customerList" class="pick"></ul>
     </div>
   </section>
@@ -58,14 +58,25 @@
     <h2>3. Take or choose photos</h2>
     <p class="hint" id="ready">Fill in the job and pick a type.</p>
     <div class="row">
-      <button id="takeBtn" class="primary" disabled>Take photo</button>
-      <button id="pickBtn" class="primary alt" disabled>Choose from gallery</button>
+      <button id="takeBtn" class="primary">Take photo</button>
+      <button id="pickBtn" class="primary alt">Choose from gallery</button>
     </div>
     <input id="camera" type="file" accept="image/*" capture="environment" hidden>
     <input id="gallery" type="file" accept="image/*" multiple hidden>
     <ul id="log" class="log"></ul>
   </section>
 </main>
+
+<dialog id="confirmDlg">
+  <div class="dlg">
+    <h2>Add photos here?</h2>
+    <p id="confirmWhere"></p>
+    <div class="row">
+      <button type="button" id="confirmYes" class="primary">Yes, add photos</button>
+      <button type="button" id="confirmNo" class="ghost">Cancel</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="settings">
   <form method="dialog">

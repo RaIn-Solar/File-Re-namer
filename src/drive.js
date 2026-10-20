@@ -75,12 +75,17 @@ function createDrive({ fetch, getToken, rootId, allowedCustomers = [] }) {
   }
 
   const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
-  const listFolders = (parentId) => list(`mimeType='${FOLDER}' and trashed=false and ${q(parentId)} in parents`).then((r) => r.sort(byName));
+  const listFolders = (parentId, extra = '') => list(`mimeType='${FOLDER}' and trashed=false and ${q(parentId)} in parents${extra ? ` and ${extra}` : ''}`).then((r) => r.sort(byName));
 
-  // Customers under the fixed root, narrowed by the allow-list when one is set.
-  async function listCustomers() {
-    const all = await listFolders(rootId);
-    return allowedCustomers.length ? all.filter((f) => allowedCustomers.includes(f.name)) : all;
+  // Customers are never listed wholesale. A search needs typed text; Drive matches each
+  // word, then every typed word must also appear in the folder name.
+  async function searchCustomers(text) {
+    const terms = String(text || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+    if (!terms.length || terms.join('').length < 2) return [];
+    const contains = terms.map((t) => `name contains ${q(t)}`).join(' and ');
+    const found = await listFolders(rootId, contains);
+    return found.filter((f) => terms.every((t) => f.name.toLowerCase().includes(t))
+      && (!allowedCustomers.length || allowedCustomers.includes(f.name)));
   }
   const listJobs = (customerId) => listFolders(customerId);
 
@@ -152,7 +157,7 @@ function createDrive({ fetch, getToken, rootId, allowedCustomers = [] }) {
     return finalName;
   }
 
-  return { listCustomers, listJobs, findPhotosFolder, verifyTarget, nextSeq, addPhoto, call };
+  return { searchCustomers, listJobs, findPhotosFolder, verifyTarget, nextSeq, addPhoto, call };
 }
 
 const driveApi = { parseFolderId, versionedName, createDrive };

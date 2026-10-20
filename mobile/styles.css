@@ -32,3 +32,5 @@ dialog form { display:grid; gap:10px; }
 .pick { list-style:none; margin:0; padding:0; display:grid; gap:6px; max-height:40vh; overflow:auto; }
 .pick button { width:100%; text-align:left; }
 [hidden] { display:none !important; }
+.hint.warn { color:#b91c1c; font-weight:600; }
+.dlg { display:grid; gap:10px; }
