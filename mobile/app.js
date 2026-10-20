@@ -1,50 +1,42 @@
 'use strict';
-// Phone app: name the photo with the same rules as the desktop app, then upload it
-// straight to Google Drive. Photos are only held in memory, never saved to the phone.
+// Phone app: pick an EXISTING customer and job from Google Drive, name the photo with the
+// same rules as the desktop app, and add it to that job folder. Photos are only held in
+// memory, never saved to the phone. See src/drive.js for the data-safety rules.
 (() => {
   const SCOPE = 'https://www.googleapis.com/auth/drive';
   const $ = (id) => document.getElementById(id);
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
-  };
   const cfg = window.APP_CONFIG || {};
-  const settings = () => {
-    const s = store.get('settings', {});
-    return {
-      clientId: s.clientId || cfg.googleClientId || '',
-      rootFolder: DriveApi.parseFolderId(s.rootFolder || cfg.driveRootFolder || ''),
-    };
-  };
 
+  let drive = null;
   let config = { categories: [], areaSuggestions: [] };
   let category = null;
+  let customer = null; // { id, name }
+  let job = null; // { id, name }
+  let customers = [];
   let token = null; // { value, expires }
   let tokenClient = null;
   let tokenWaiter = null;
+  let confirmedJobId = null;
 
-  const today = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
   const dateOf = (ms) => {
     const d = new Date(ms);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
+  const today = () => dateOf(Date.now());
+  const signedIn = () => !!(token && token.expires > Date.now());
 
   // ---- Google sign-in -------------------------------------------------------
   function initAuth() {
-    const { clientId } = settings();
-    if (!clientId || !window.google || !google.accounts) return false;
+    if (tokenClient) return true;
+    if (!cfg.googleClientId || !window.google || !google.accounts) return false;
     tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
+      client_id: cfg.googleClientId,
       scope: SCOPE,
       callback: (r) => {
         const w = tokenWaiter; tokenWaiter = null;
         if (r.error) { if (w) w.reject(new Error(r.error_description || r.error)); return; }
         token = { value: r.access_token, expires: Date.now() + (Number(r.expires_in) - 60) * 1000 };
         if (w) w.resolve(token.value);
-        refreshReady();
       },
       error_callback: (e) => {
         const w = tokenWaiter; tokenWaiter = null;
@@ -53,61 +45,101 @@
     });
     return true;
   }
-  const signedIn = () => !!(token && token.expires > Date.now());
   // Must be called from a tap (browsers block the sign-in popup otherwise).
   function signIn() {
-    if (!tokenClient && !initAuth()) return Promise.reject(new Error('Google sign-in is not set up yet (Settings)'));
+    if (!initAuth()) return Promise.reject(new Error('Google sign-in is still loading. Try again in a moment.'));
     return new Promise((resolve, reject) => {
       tokenWaiter = { resolve, reject };
-      tokenClient.requestAccessToken({ prompt: signedIn() ? '' : (store.get('signedInBefore', false) ? '' : 'consent') });
-      store.set('signedInBefore', true);
+      let before = false;
+      try { before = localStorage.getItem('signedInBefore') === '1'; localStorage.setItem('signedInBefore', '1'); } catch { /* ignore */ }
+      tokenClient.requestAccessToken({ prompt: before ? '' : 'consent' });
     });
   }
-  const drive = DriveApi.createDrive({
-    fetch: (...a) => fetch(...a),
-    getToken: async () => {
-      if (!signedIn()) { const e = new Error('Please sign in to Google'); e.needsSignIn = true; throw e; }
-      return token.value;
-    },
-  });
-
-  // ---- Job + types ----------------------------------------------------------
-  // Drive folders use the names exactly as typed (e.g. "Inman, Rachel"), only tidying spaces.
-  const tidy = (s) => String(s || '').trim().replace(/\s+/g, ' ');
-  const jobFolderName = () => `${tidy($('customer').value)} / ${tidy($('jobName').value)}`;
-  const savedJobs = () => store.get('jobs', []);
-
-  function renderJobs() {
-    const sel = $('savedJobs');
-    sel.innerHTML = '<option value="">New job…</option>';
-    savedJobs().forEach((j, i) => {
-      const o = document.createElement('option');
-      o.value = i; o.textContent = `${j.customer} – ${j.jobName}`;
-      sel.appendChild(o);
-    });
+  function getDrive() {
+    if (!drive) {
+      drive = DriveApi.createDrive({
+        fetch: (...a) => fetch(...a),
+        getToken: async () => {
+          if (!signedIn()) { const e = new Error('Please sign in to Google'); e.needsSignIn = true; throw e; }
+          return token.value;
+        },
+        rootId: cfg.driveRootFolderId,
+        allowedCustomers: cfg.allowedCustomers || [],
+      });
+    }
+    return drive;
   }
-  $('savedJobs').addEventListener('change', (e) => {
-    const j = savedJobs()[e.target.value];
-    $('forgetJob').hidden = !j;
-    if (j) { $('customer').value = j.customer; $('jobName').value = j.jobName; }
-    $('date').value = today();
+
+  // ---- Customer / job pickers -----------------------------------------------
+  function renderList(ul, items, filter, onPick) {
+    const f = filter.trim().toLowerCase();
+    const shown = items.filter((i) => !f || i.name.toLowerCase().includes(f));
+    ul.innerHTML = '';
+    if (!shown.length) {
+      const li = document.createElement('li');
+      li.className = 'hint';
+      li.textContent = items.length ? 'No match. Check the spelling.' : 'Nothing found.';
+      ul.appendChild(li);
+      return;
+    }
+    shown.slice(0, 50).forEach((i) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = i.name;
+      b.addEventListener('click', () => onPick(i));
+      li.appendChild(b); ul.appendChild(li);
+    });
+    if (shown.length > 50) {
+      const li = document.createElement('li');
+      li.className = 'hint'; li.textContent = `Showing 50 of ${shown.length}. Type more to narrow.`;
+      ul.appendChild(li);
+    }
+  }
+  let jobs = [];
+  const renderCustomers = () => renderList($('customerList'), customers, $('customerSearch').value, pickCustomer);
+  const renderJobs = () => renderList($('jobList'), jobs, $('jobSearch').value, pickJob);
+  $('customerSearch').addEventListener('input', renderCustomers);
+  $('jobSearch').addEventListener('input', renderJobs);
+
+  async function loadCustomers() {
+    $('customerList').innerHTML = '<li class="hint">Loading customers…</li>';
+    try {
+      customers = await getDrive().listCustomers();
+      renderCustomers();
+    } catch (e) {
+      $('customerList').innerHTML = '';
+      const li = document.createElement('li'); li.className = 'hint'; li.textContent = `Could not load customers: ${e.message}`;
+      $('customerList').appendChild(li);
+    }
+  }
+  async function pickCustomer(c) {
+    customer = c; job = null; jobs = [];
+    $('customerName').textContent = c.name;
+    $('customerChosen').hidden = false; $('customerPicker').hidden = true;
+    $('jobCard').hidden = false; $('jobChosen').hidden = true; $('jobPicker').hidden = false;
+    $('jobSearch').value = '';
+    $('jobList').innerHTML = '<li class="hint">Loading jobs…</li>';
+    try { jobs = await getDrive().listJobs(c.id); renderJobs(); } catch (e) {
+      $('jobList').innerHTML = `<li class="hint">Could not load jobs: ${e.message}</li>`;
+    }
     refreshReady();
+  }
+  function pickJob(j) {
+    job = j;
+    $('jobNameLabel').textContent = j.name;
+    $('jobChosen').hidden = false; $('jobPicker').hidden = true;
+    refreshReady();
+  }
+  $('changeCustomer').addEventListener('click', () => {
+    customer = null; job = null;
+    $('customerChosen').hidden = true; $('customerPicker').hidden = false; $('jobCard').hidden = true;
+    renderCustomers(); refreshReady();
   });
-  $('saveJob').addEventListener('click', () => {
-    const customer = $('customer').value.trim().replace(/\s+/g, ' ');
-    const jobName = $('jobName').value.trim().replace(/\s+/g, ' ');
-    if (!customer || !jobName) return alert('Enter the customer and job name first.');
-    const rest = savedJobs().filter((j) => !(j.customer.toLowerCase() === customer.toLowerCase() && j.jobName.toLowerCase() === jobName.toLowerCase()));
-    store.set('jobs', [{ customer, jobName }, ...rest].slice(0, 50));
-    renderJobs(); $('savedJobs').value = 0; $('forgetJob').hidden = false;
-  });
-  $('forgetJob').addEventListener('click', () => {
-    const i = $('savedJobs').value;
-    if (i === '' || !confirm('Mark this job complete and remove it from this phone?')) return;
-    store.set('jobs', savedJobs().filter((_, k) => k !== Number(i)));
-    renderJobs(); $('customer').value = ''; $('jobName').value = ''; $('forgetJob').hidden = true; refreshReady();
+  $('changeJob').addEventListener('click', () => {
+    job = null; $('jobChosen').hidden = true; $('jobPicker').hidden = false; renderJobs(); refreshReady();
   });
 
+  // ---- Types ----------------------------------------------------------------
   function renderTypes() {
     const box = $('types');
     box.innerHTML = '';
@@ -122,65 +154,62 @@
       });
       box.appendChild(b);
     });
-    const chips = $('areaChips');
     config.areaSuggestions.forEach((a) => {
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = a;
       b.addEventListener('click', () => { $('area').value = a; });
-      chips.appendChild(b);
+      $('areaChips').appendChild(b);
     });
   }
 
   function problem() {
-    const s = settings();
-    if (!s.clientId || !s.rootFolder) return 'Open Settings and enter the Google Drive folder and client ID.';
-    if (!signedIn()) return 'Tap “Connect Google Drive” first.';
-    if (!$('customer').value.trim() || !$('jobName').value.trim()) return 'Enter the customer and job name.';
+    if (!signedIn()) return 'Connect Google Drive first.';
+    if (!customer) return 'Pick the customer.';
+    if (!job) return 'Pick the job.';
     if (!$('date').value) return 'Pick the photo date.';
     if (!category) return 'Pick what the photos are for.';
     return '';
   }
   function refreshReady() {
-    const s = settings();
+    const connected = signedIn();
+    $('connectCard').hidden = connected;
+    $('customerCard').hidden = !connected;
+    if (!connected) $('jobCard').hidden = true;
     const p = problem();
-    const needConnect = s.clientId && s.rootFolder && !signedIn();
-    $('setup').hidden = !!(s.clientId && s.rootFolder);
-    $('setupMsg').textContent = 'Open Settings and enter the Google Drive folder and the OAuth client ID.';
-    $('ready').textContent = p || `Ready: ${jobFolderName()} / ${category.label}`;
-    $('takeBtn').disabled = $('pickBtn').disabled = !!p && !needConnect;
-    $('takeBtn').textContent = needConnect ? 'Connect Google Drive' : 'Take photo';
-    $('pickBtn').textContent = needConnect ? 'Connect Google Drive' : 'Choose from gallery';
+    $('ready').textContent = p || `Ready: ${customer.name} / ${job.name} / ${category.label}`;
+    $('takeBtn').disabled = $('pickBtn').disabled = !!p;
   }
-  ['customer', 'jobName', 'date'].forEach((id) => $(id).addEventListener('input', refreshReady));
+  $('date').addEventListener('input', refreshReady);
+
+  $('connectBtn').addEventListener('click', async () => {
+    try { await signIn(); } catch (e) { return alert(e.message); }
+    refreshReady();
+    loadCustomers();
+  });
 
   // ---- Uploading ------------------------------------------------------------
   let queue = Promise.resolve();
   function enqueue(file, date) {
-    // Capture everything now so later edits to the form don't change a queued photo.
-    const job = {
-      customer: $('customer').value, jobName: $('jobName').value, area: $('area').value,
-      cat: category, folderName: jobFolderName(), root: settings().rootFolder,
-      customerFolder: tidy($('customer').value), jobFolder: tidy($('jobName').value),
-    };
+    // Capture everything now so later changes to the form don't redirect a queued photo.
+    const t = { customer, job, cat: category, area: $('area').value };
     const li = document.createElement('li');
     $('log').prepend(li);
     const run = async () => {
       li.className = 'busy'; li.textContent = 'Uploading…';
       try {
         const ext = (file.name.match(/\.[A-Za-z0-9]+$/) || [''])[0] || (file.type === 'image/png' ? '.png' : '.jpg');
-        // Customer folders must already exist (a typo should not create a duplicate); the job folder is created if missing.
-        const customerId = await drive.findFolder(job.root, job.customerFolder);
-        if (!customerId) throw new Error(`No customer folder named “${job.customerFolder}” in Drive. Check the spelling (Last, First).`);
-        const dir = await drive.ensureFolder(customerId, job.jobFolder);
-        // Sequence number comes from what's already in Drive, so names never collide.
-        const stem = Naming.buildName({ ...job, date, seq: 0, ext: '' }).replace(/_000$/, '');
-        const seq = await drive.nextSeq(dir, stem, ext);
-        const name = Naming.buildName({ ...job, date, seq, ext });
-        await drive.uploadFile(dir, name, file);
-        li.className = 'ok'; li.textContent = `✓ ${job.folderName} / ${name}`;
+        const d = getDrive();
+        await d.verifyTarget(t.customer.id, t.job.id);
+        const fields = { customer: t.customer.name, jobName: t.job.name, date, cat: t.cat, area: t.area, ext };
+        // Sequence comes from what is already in Drive, so names don't collide across phones.
+        const stem = Naming.buildName({ ...fields, seq: 0, ext: '' }).replace(/_000$/, '');
+        const seq = await d.nextSeq(t.job.id, stem, ext);
+        const name = await d.addPhoto(t.customer.id, t.job.id, Naming.buildName({ ...fields, seq }), file);
+        li.className = 'ok'; li.textContent = `✓ ${t.customer.name} / ${t.job.name} / ${name}`;
       } catch (err) {
         li.className = 'err';
         li.textContent = `✗ Not uploaded: ${err.message}`;
+        if (/^Blocked/.test(err.message)) return; // safety refusals are never retried
         const b = document.createElement('button');
         b.textContent = err.needsSignIn ? 'Sign in & retry' : 'Retry';
         b.addEventListener('click', async () => {
@@ -193,7 +222,7 @@
     queue = queue.then(run);
   }
 
-  async function handleFiles(input, useOwnDate) {
+  function handleFiles(input, useOwnDate) {
     const files = [...input.files];
     input.value = '';
     files.forEach((f) => enqueue(f, useOwnDate && f.lastModified ? dateOf(f.lastModified) : $('date').value));
@@ -203,7 +232,13 @@
       try { await signIn(); } catch (e) { return alert(e.message); }
       return refreshReady();
     }
-    if (!problem()) input.click();
+    if (problem()) return;
+    // Confirm the destination once per job so a wrong tap can't send photos to the wrong customer.
+    if (confirmedJobId !== job.id) {
+      if (!confirm(`Add photos to:\n\nContacts-Active / ${customer.name} / ${job.name}\n\nIs this correct?`)) return;
+      confirmedJobId = job.id;
+    }
+    input.click();
   }
   $('takeBtn').addEventListener('click', () => start($('camera')));
   $('pickBtn').addEventListener('click', () => start($('gallery')));
@@ -211,30 +246,22 @@
   $('gallery').addEventListener('change', () => handleFiles($('gallery'), true));
 
   // ---- Settings -------------------------------------------------------------
-  $('settingsBtn').addEventListener('click', () => {
-    const s = store.get('settings', {});
-    $('rootFolder').value = s.rootFolder || cfg.driveRootFolder || '';
-    $('clientId').value = s.clientId || cfg.googleClientId || '';
-    $('settings').showModal();
-  });
-  $('saveSettings').addEventListener('click', () => {
-    store.set('settings', { rootFolder: $('rootFolder').value.trim(), clientId: $('clientId').value.trim() });
-    tokenClient = null; token = null;
-    setTimeout(() => { initAuth(); refreshReady(); }, 0);
-  });
+  $('settingsBtn').addEventListener('click', () => $('settings').showModal());
   $('signOut').addEventListener('click', () => {
     if (token && window.google) google.accounts.oauth2.revoke(token.value, () => {});
-    token = null; $('settings').close(); refreshReady();
+    token = null; customer = null; job = null; drive = null; confirmedJobId = null;
+    $('settings').close();
+    $('customerChosen').hidden = true; $('customerPicker').hidden = false;
+    refreshReady();
   });
 
   // ---- Start ----------------------------------------------------------------
   async function init() {
     try { config = await (await fetch('config.default.json')).json(); } catch { /* offline first run */ }
-    renderTypes(); renderJobs();
+    renderTypes();
     $('date').value = today();
     refreshReady();
-    // The Google script loads async; wait for it before building the token client.
-    const t = setInterval(() => { if (initAuth()) { clearInterval(t); refreshReady(); } }, 300);
+    const t = setInterval(() => { if (initAuth()) clearInterval(t); }, 300);
     setTimeout(() => clearInterval(t), 15000);
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   }

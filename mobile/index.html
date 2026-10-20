@@ -17,23 +17,33 @@
 </header>
 
 <main>
-  <section id="setup" class="card" hidden>
-    <h2>One-time setup</h2>
-    <p id="setupMsg"></p>
+  <section class="card" id="connectCard">
+    <h2>Connect</h2>
+    <p class="hint" id="connectMsg">Sign in to Google to load the customer list.</p>
+    <button id="connectBtn" class="primary">Connect Google Drive</button>
   </section>
 
-  <section class="card">
-    <h2>1. Job</h2>
-    <label>Saved jobs
-      <select id="savedJobs"><option value="">New job…</option></select>
-    </label>
-    <label>Customer (Last, First) <input id="customer" autocomplete="off" placeholder="Inman, Rachel"></label>
-    <label>Job name <input id="jobName" autocomplete="off" placeholder="Roof Replacement"></label>
-    <label>Photo date <input id="date" type="date"></label>
-    <div class="row">
-      <button id="saveJob" class="ghost">Remember this job</button>
-      <button id="forgetJob" class="ghost" hidden>Job complete (forget)</button>
+  <section class="card" id="customerCard" hidden>
+    <h2>1. Customer</h2>
+    <div id="customerChosen" hidden>
+      <b id="customerName"></b> <button id="changeCustomer" class="ghost">Change</button>
     </div>
+    <div id="customerPicker">
+      <input id="customerSearch" type="search" autocomplete="off" placeholder="Search customer (Last, First)">
+      <ul id="customerList" class="pick"></ul>
+    </div>
+  </section>
+
+  <section class="card" id="jobCard" hidden>
+    <h2>Job</h2>
+    <div id="jobChosen" hidden>
+      <b id="jobNameLabel"></b> <button id="changeJob" class="ghost">Change</button>
+    </div>
+    <div id="jobPicker">
+      <input id="jobSearch" type="search" autocomplete="off" placeholder="Search job">
+      <ul id="jobList" class="pick"></ul>
+    </div>
+    <label>Photo date <input id="date" type="date"></label>
   </section>
 
   <section class="card">
@@ -59,18 +69,9 @@
 <dialog id="settings">
   <form method="dialog">
     <h2>Settings</h2>
-    <label>Google Drive folder (link or ID)
-      <input id="rootFolder" autocomplete="off" placeholder="https://drive.google.com/drive/folders/…">
-    </label>
-    <label>Google OAuth client ID
-      <input id="clientId" autocomplete="off" placeholder="1234-abc.apps.googleusercontent.com">
-    </label>
-    <p class="hint">Photos go to <b>Contacts-Active / Customer / Job /</b>. Nothing is saved on this phone.</p>
-    <div class="row">
-      <button value="save" id="saveSettings" class="primary">Save</button>
-      <button value="cancel" class="ghost">Cancel</button>
-    </div>
+    <p class="hint">Photos go to <b>Contacts-Active / Customer / Job /</b>. Nothing is saved on this phone, nothing is ever deleted or replaced, and folders are never created.</p>
     <button type="button" id="signOut" class="ghost">Sign out of Google</button>
+    <button value="cancel" class="ghost">Close</button>
   </form>
 </dialog>
 
