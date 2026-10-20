@@ -2,6 +2,6 @@
 // The client ID is not a secret. The Drive folder can also be set on the phone itself
 // under Settings, which overrides these values.
 window.APP_CONFIG = {
-  googleClientId: '',
+  googleClientId: '939313178403-ci3to3r7e5rjohpoln849ir274fiqk4n.apps.googleusercontent.com',
   driveRootFolder: '', // link to (or id of) the Drive folder that holds all customer folders
 };
