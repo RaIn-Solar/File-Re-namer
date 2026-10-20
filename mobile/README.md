@@ -12,6 +12,8 @@ Drive layout: `Contacts-Active/<Last, First>/<Job name>/Photos/<Customer>_<Job>_
 
 Photos live only in the page, so closing it before uploading loses them (the app warns first).
 
+A short **tutorial** (9 steps) opens the first time the app is used on a phone and can be replayed any time with the **? Tutorial** button at the top.
+
 ## Data safety (enforced in `src/drive.js`, covered by tests)
 - Only reads and brand-new file uploads can leave the app. There is no delete, trash, move, rename or overwrite code.
 - Before every upload the app re-checks with Drive that the target is exactly `Contacts-Active > customer > job > Photos`.

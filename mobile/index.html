@@ -13,7 +13,10 @@
 <body>
 <header>
   <h1>Job Photos</h1>
-  <button id="settingsBtn" class="ghost" aria-label="Settings">Settings</button>
+  <div class="hbtns">
+    <button id="tutorialBtn" class="ghost" type="button" aria-label="Tutorial">? Tutorial</button>
+    <button id="settingsBtn" class="ghost" aria-label="Settings">Settings</button>
+  </div>
 </header>
 
 <main>
@@ -50,7 +53,7 @@
   <section class="card">
     <h2>Photos</h2>
     <p class="hint">Add all your photos first, then label them. Nothing is uploaded until you review.</p>
-    <div class="row">
+    <div class="row" id="addRow">
       <button id="takeBtn" class="primary">Take photo</button>
       <button id="pickBtn" class="primary alt">Choose from gallery</button>
     </div>
@@ -114,6 +117,22 @@
 <script src="naming.js"></script>
 <script src="drive.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<div id="tour" hidden>
+  <div id="tourSpot"></div>
+  <div id="tourCard" role="dialog" aria-live="polite">
+    <div id="tourStep" class="hint"></div>
+    <h3 id="tourTitle"></h3>
+    <p id="tourText"></p>
+    <div class="row">
+      <button id="tourSkip" type="button" class="ghost">Skip</button>
+      <span class="spacer"></span>
+      <button id="tourBack" type="button">Back</button>
+      <button id="tourNext" class="primary" type="button">Next</button>
+    </div>
+  </div>
+</div>
+
+<script src="tour.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

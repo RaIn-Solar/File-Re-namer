@@ -53,3 +53,17 @@ dialog form { display:grid; gap:10px; }
 #reviewDlg .log li { background:rgba(255,255,255,.1); color:#fff; }
 #reviewDlg #reviewYes { background:#dbeafe; color:#1f2937; border-color:#dbeafe; }
 #reviewDlg #reviewNo { background:transparent; color:#fff; border-color:rgba(255,255,255,.55); }
+.hbtns { display:flex; gap:6px; }
+/* ---- tutorial ---- */
+#tour { position:fixed; inset:0; z-index:1000; }
+#tour.dim { background:rgba(0,0,0,.65); }
+#tourSpot { position:fixed; border-radius:8px; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,.65); outline:3px solid #fbbf24; transition:top .25s, left .25s, width .25s, height .25s; }
+#tour.dim #tourSpot { display:none; }
+#tourSpot.pulse { animation:tourPulse 1.1s ease-in-out infinite; }
+@keyframes tourPulse { 0%,100% { outline-offset:0; } 50% { outline-offset:8px; } }
+@media (prefers-reduced-motion: reduce) { #tourSpot.pulse { animation:none; } #tourSpot { transition:none; } }
+#tourCard { position:fixed; max-height:calc(100vh - 24px); overflow:auto; background:#fff; color:var(--ink); border-radius:12px; padding:14px 16px; box-shadow:0 12px 40px #0008; }
+#tourCard h3 { margin:2px 0 6px; font-size:1.05rem; }
+#tourCard p { margin:0 0 12px; }
+#tourCard .row { align-items:center; flex-wrap:nowrap; }
+#tourCard .spacer { flex:1; }
