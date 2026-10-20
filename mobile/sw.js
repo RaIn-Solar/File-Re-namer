@@ -1,6 +1,6 @@
 'use strict';
 // Caches the app shell so it opens instantly and without signal; uploads always need a connection.
-const CACHE = 'job-photos-v1';
+const CACHE = 'job-photos-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'styles.css', 'config.js', 'naming.js', 'drive.js',
   'config.default.json', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 

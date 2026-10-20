@@ -1,7 +1,8 @@
 'use strict';
-// Phone app: pick an EXISTING customer and job from Google Drive, name the photo with the
-// same rules as the desktop app, and add it to that job folder. Photos are only held in
-// memory, never saved to the phone. See src/drive.js for the data-safety rules.
+// Phone app: add photos first, label them, then upload them all to the job's Photos folder
+// in Google Drive. Photos are only held in memory, never saved to the phone. Customers and
+// jobs are existing Drive folders picked from search results. See src/drive.js for the
+// data-safety rules.
 (() => {
   const SCOPE = 'https://www.googleapis.com/auth/drive';
   const $ = (id) => document.getElementById(id);
@@ -9,14 +10,17 @@
 
   let drive = null;
   let config = { categories: [], areaSuggestions: [] };
-  let category = null;
   let customer = null; // { id, name }
-  let job = null; // { id, name }
-  let customers = [];
+  let job = null; // { id, name, photosId }
   let token = null; // { value, expires }
   let tokenClient = null;
   let tokenWaiter = null;
-  let confirmedJobId = null;
+  let uploading = false;
+
+  // Photos waiting to go: { id, file, thumb, date, cat, area, status, flag }
+  let photos = [];
+  let nextId = 1;
+  const selected = new Set();
 
   const dateOf = (ms) => {
     const d = new Date(ms);
@@ -24,6 +28,8 @@
   };
   const today = () => dateOf(Date.now());
   const signedIn = () => !!(token && token.expires > Date.now());
+  const catById = (id) => config.categories.find((c) => c.id === id);
+  const waiting = () => photos.filter((p) => p.status !== 'done');
 
   // ---- Google sign-in -------------------------------------------------------
   function initAuth() {
@@ -71,17 +77,12 @@
   }
 
   // ---- Customer / job pickers -----------------------------------------------
+  const hint = (ul, text) => { ul.innerHTML = ''; const li = document.createElement('li'); li.className = 'hint'; li.textContent = text; ul.appendChild(li); };
   function renderList(ul, items, filter, onPick) {
     const f = filter.trim().toLowerCase();
     const shown = items.filter((i) => !f || i.name.toLowerCase().includes(f));
+    if (!shown.length) return hint(ul, items.length ? 'No match. Check the spelling.' : 'Nothing found.');
     ul.innerHTML = '';
-    if (!shown.length) {
-      const li = document.createElement('li');
-      li.className = 'hint';
-      li.textContent = items.length ? 'No match. Check the spelling.' : 'Nothing found.';
-      ul.appendChild(li);
-      return;
-    }
     shown.slice(0, 50).forEach((i) => {
       const li = document.createElement('li');
       const b = document.createElement('button');
@@ -100,10 +101,9 @@
   $('jobSearch').addEventListener('input', renderJobs);
 
   // Customers are only looked up for what is typed; nothing is listed up front.
-  const hint = (ul, text) => { ul.innerHTML = ''; const li = document.createElement('li'); li.className = 'hint'; li.textContent = text; ul.appendChild(li); };
   let searchTimer = null;
   let searchId = 0;
-  function showCustomerHint() { hint($('customerList'), 'Type at least 2 letters of the customer name.'); }
+  const showCustomerHint = () => hint($('customerList'), 'Type at least 2 letters of the customer name.');
   $('customerSearch').addEventListener('input', () => {
     clearTimeout(searchTimer);
     const text = $('customerSearch').value;
@@ -114,7 +114,6 @@
       try {
         const found = await getDrive().searchCustomers(text);
         if (mine !== searchId) return; // a newer search replaced this one
-        customers = found;
         if (!found.length) return hint($('customerList'), 'No customer found. Check the spelling.');
         renderList($('customerList'), found, '', pickCustomer);
       } catch (e) {
@@ -128,10 +127,11 @@
     $('customerName').textContent = c.name;
     $('customerChosen').hidden = false; $('customerPicker').hidden = true;
     $('jobCard').hidden = false; $('jobChosen').hidden = true; $('jobPicker').hidden = false;
+    $('jobNote').textContent = '';
     $('jobSearch').value = '';
-    $('jobList').innerHTML = '<li class="hint">Loading jobs…</li>';
+    hint($('jobList'), 'Loading jobs…');
     try { jobs = await getDrive().listJobs(c.id); renderJobs(); } catch (e) {
-      $('jobList').innerHTML = `<li class="hint">Could not load jobs: ${e.message}</li>`;
+      hint($('jobList'), `Could not load jobs: ${e.message}`);
     }
     refreshReady();
   }
@@ -142,21 +142,107 @@
     $('jobNote').textContent = 'Checking for the Photos folder…';
     refreshReady();
     try {
-      const photos = await getDrive().findPhotosFolder(j.id);
-      if (customer && $('jobNameLabel').textContent === j.name) { job = { ...j, photosId: photos.id }; $('jobNote').textContent = ''; }
+      const photosFolder = await getDrive().findPhotosFolder(j.id);
+      if (customer && $('jobNameLabel').textContent === j.name) { job = { ...j, photosId: photosFolder.id }; $('jobNote').textContent = ''; }
     } catch (e) { $('jobNote').textContent = e.message; }
     refreshReady();
   }
   $('changeCustomer').addEventListener('click', () => {
-    customer = null; job = null; customers = [];
+    customer = null; job = null;
     $('customerChosen').hidden = true; $('customerPicker').hidden = false; $('jobCard').hidden = true;
     $('customerSearch').value = ''; showCustomerHint(); refreshReady();
   });
   $('changeJob').addEventListener('click', () => {
-    job = null; $('jobChosen').hidden = true; $('jobPicker').hidden = false; renderJobs(); refreshReady();
+    job = null; $('jobNote').textContent = ''; $('jobChosen').hidden = true; $('jobPicker').hidden = false; renderJobs(); refreshReady();
   });
 
-  // ---- Types ----------------------------------------------------------------
+  // ---- Photos: add, select, label -------------------------------------------
+  function makeThumb(p) {
+    const fallback = () => { p.thumb = URL.createObjectURL(p.file); renderGrid(); };
+    if (!window.createImageBitmap) return fallback();
+    createImageBitmap(p.file, { resizeWidth: 240, resizeQuality: 'low' }).then((bmp) => {
+      const c = document.createElement('canvas');
+      c.width = bmp.width; c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      bmp.close && bmp.close();
+      c.toBlob((b) => { if (!b) return fallback(); p.thumb = URL.createObjectURL(b); renderGrid(); }, 'image/jpeg', 0.7);
+    }).catch(fallback);
+  }
+  function addFiles(files, ownDate) {
+    files.forEach((f) => {
+      const p = { id: nextId++, file: f, thumb: '', cat: null, area: '', status: 'pending', flag: false,
+        date: ownDate && f.lastModified ? dateOf(f.lastModified) : $('date').value };
+      photos.push(p);
+      makeThumb(p);
+    });
+    renderGrid();
+  }
+  function renderGrid() {
+    const grid = $('grid');
+    grid.innerHTML = '';
+    photos.forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `thumb${selected.has(p.id) ? ' sel' : ''}${p.flag ? ' flag' : ''}${p.status === 'done' ? ' done' : ''}`;
+      if (p.thumb) { const img = document.createElement('img'); img.src = p.thumb; img.alt = ''; b.appendChild(img); }
+      const tag = document.createElement('div');
+      const c = catById(p.cat);
+      tag.className = 'tag';
+      if (c) { tag.style.background = c.color; if (['#F9A8D4', '#F59E0B'].includes(c.color.toUpperCase())) tag.style.color = '#111827'; }
+      tag.textContent = c ? `${c.label}${p.area ? ' · ' + p.area : ''}` : 'No type yet';
+      b.appendChild(tag);
+      const st = document.createElement('div');
+      st.className = 'st';
+      st.textContent = { done: '✓', busy: '…', error: '✗' }[p.status] || '';
+      if (st.textContent) b.appendChild(st);
+      b.title = p.date;
+      b.addEventListener('click', () => {
+        if (p.status === 'done') return;
+        if (selected.has(p.id)) selected.delete(p.id); else selected.add(p.id);
+        renderGrid();
+      });
+      grid.appendChild(b);
+    });
+    const n = waiting().length;
+    $('selBar').hidden = !n;
+    $('labelCard').hidden = !n;
+    $('clearDone').hidden = !photos.some((p) => p.status === 'done');
+    const sel = selectedPhotos().length;
+    $('selCount').textContent = `${n} photo${n === 1 ? '' : 's'}, ${sel} selected`;
+    $('labelHint').textContent = sel ? `${sel} selected. Pick a type to label them.` : 'Tap photos above to select them, then pick a type.';
+    refreshReady();
+  }
+  const selectedPhotos = () => photos.filter((p) => selected.has(p.id) && p.status !== 'done');
+  function onSelected(fn) {
+    const s = selectedPhotos();
+    if (!s.length) { $('labelHint').textContent = 'Select at least one photo first.'; $('labelHint').classList.add('warn'); return false; }
+    $('labelHint').classList.remove('warn');
+    s.forEach((p) => { fn(p); p.flag = false; });
+    renderGrid();
+    return true;
+  }
+  $('selAll').addEventListener('click', () => { waiting().forEach((p) => selected.add(p.id)); renderGrid(); });
+  $('selNone').addEventListener('click', () => { selected.clear(); renderGrid(); });
+  $('selUnlabeled').addEventListener('click', () => {
+    selected.clear(); waiting().filter((p) => !p.cat).forEach((p) => selected.add(p.id)); renderGrid();
+  });
+  $('setArea').addEventListener('click', () => onSelected((p) => { p.area = $('area').value.trim(); }));
+  $('clearArea').addEventListener('click', () => { $('area').value = ''; onSelected((p) => { p.area = ''; }); });
+  $('setDate').addEventListener('change', () => { if ($('setDate').value) onSelected((p) => { p.date = $('setDate').value; }); });
+  $('removeSel').addEventListener('click', () => {
+    const s = selectedPhotos();
+    if (!s.length) return onSelected(() => {});
+    if (!confirm(`Remove ${s.length} photo${s.length === 1 ? '' : 's'} from this list?\n\nPhotos taken with the camera are not saved anywhere else and will be lost.`)) return;
+    s.forEach((p) => { selected.delete(p.id); if (p.thumb) URL.revokeObjectURL(p.thumb); });
+    photos = photos.filter((p) => !s.includes(p));
+    renderGrid();
+  });
+  $('clearDone').addEventListener('click', () => {
+    photos.filter((p) => p.status === 'done').forEach((p) => { if (p.thumb) URL.revokeObjectURL(p.thumb); });
+    photos = photos.filter((p) => p.status !== 'done');
+    renderGrid();
+  });
+
   function renderTypes() {
     const box = $('types');
     box.innerHTML = '';
@@ -164,39 +250,41 @@
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = c.label; b.style.background = c.color;
       if (['#F9A8D4', '#F59E0B'].includes(c.color.toUpperCase())) b.style.color = '#111827';
-      b.addEventListener('click', () => {
-        category = c;
-        [...box.children].forEach((x) => x.classList.toggle('on', x === b));
-        refreshReady();
-      });
+      b.addEventListener('click', () => onSelected((p) => { p.cat = c.id; }));
       box.appendChild(b);
     });
     config.areaSuggestions.forEach((a) => {
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = a;
-      b.addEventListener('click', () => { $('area').value = a; });
+      b.addEventListener('click', () => { $('area').value = a; onSelected((p) => { p.area = a; }); });
       $('areaChips').appendChild(b);
     });
   }
 
-  function problem() {
-    if (!signedIn()) return 'Connect Google Drive first.';
-    if (!customer) return 'Pick the customer.';
-    if (!job) return $('jobChosen').hidden ? 'Pick the job.' : ($('jobNote').textContent || 'Checking the job…');
-    if (!$('date').value) return 'Pick the photo date.';
-    if (!category) return 'Pick what the photos are for.';
-    return '';
-  }
+  // File choosers must open straight from a tap, so these buttons do nothing else first.
+  $('takeBtn').addEventListener('click', () => $('camera').click());
+  $('pickBtn').addEventListener('click', () => $('gallery').click());
+  const take = (input, own) => { const f = [...input.files]; input.value = ''; addFiles(f, own); };
+  $('camera').addEventListener('change', () => take($('camera'), false));
+  $('gallery').addEventListener('change', () => take($('gallery'), true));
+  window.addEventListener('beforeunload', (e) => { if (waiting().length) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ---- Review & upload ------------------------------------------------------
   function refreshReady() {
     const connected = signedIn();
     $('connectCard').hidden = connected;
     $('customerCard').hidden = !connected;
     if (!connected) $('jobCard').hidden = true;
-    const p = problem();
-    $('ready').textContent = p || `Ready: ${customer.name} / ${job.name} / Photos`;
+    const n = waiting().length;
+    const unlabeled = waiting().filter((p) => !p.cat).length;
     $('ready').classList.remove('warn');
+    if (uploading) $('ready').textContent = 'Uploading…';
+    else if (!n) $('ready').textContent = 'Add photos to begin.';
+    else if (unlabeled) $('ready').textContent = `${unlabeled} of ${n} photo${n === 1 ? '' : 's'} still need a type.`;
+    else $('ready').textContent = `${n} photo${n === 1 ? '' : 's'} labeled. Choose the customer and job, then review.`;
+    $('reviewBtn').disabled = uploading;
   }
-  $('date').addEventListener('input', refreshReady);
+  const warn = (text) => { $('ready').textContent = text; $('ready').classList.add('warn'); };
 
   $('connectBtn').addEventListener('click', async () => {
     try { await signIn(); } catch (e) { return alert(e.message); }
@@ -204,78 +292,81 @@
     showCustomerHint();
   });
 
-  // ---- Uploading ------------------------------------------------------------
-  let queue = Promise.resolve();
-  function enqueue(file, date) {
-    // Capture everything now so later changes to the form don't redirect a queued photo.
-    const t = { customer, job, cat: category, area: $('area').value };
-    const li = document.createElement('li');
-    $('log').prepend(li);
-    const run = async () => {
-      li.className = 'busy'; li.textContent = 'Uploading…';
-      try {
-        const ext = (file.name.match(/\.[A-Za-z0-9]+$/) || [''])[0] || (file.type === 'image/png' ? '.png' : '.jpg');
-        const d = getDrive();
-        await d.verifyTarget(t.customer.id, t.job.id, t.job.photosId);
-        const fields = { customer: t.customer.name, jobName: t.job.name, date, cat: t.cat, area: t.area, ext };
-        // Sequence comes from what is already in Drive, so names don't collide across phones.
-        const stem = Naming.buildName({ ...fields, seq: 0, ext: '' }).replace(/_000$/, '');
-        const seq = await d.nextSeq(t.job.photosId, stem, ext);
-        const name = await d.addPhoto(t.customer.id, t.job.id, t.job.photosId, Naming.buildName({ ...fields, seq }), file);
-        li.className = 'ok'; li.textContent = `✓ ${t.customer.name} / ${t.job.name} / Photos / ${name}`;
-      } catch (err) {
-        li.className = 'err';
-        li.textContent = `✗ Not uploaded: ${err.message}`;
-        if (/^Blocked/.test(err.message)) return; // safety refusals are never retried
-        const b = document.createElement('button');
-        b.textContent = err.needsSignIn ? 'Sign in & retry' : 'Retry';
-        b.addEventListener('click', async () => {
-          try { if (err.needsSignIn || !signedIn()) await signIn(); } catch (e2) { return alert(e2.message); }
-          b.remove(); queue = queue.then(run);
-        });
-        li.append(document.createElement('br'), b);
-      }
-    };
-    queue = queue.then(run);
-  }
-
-  function handleFiles(input, useOwnDate) {
-    const files = [...input.files];
-    input.value = '';
-    files.forEach((f) => enqueue(f, useOwnDate && f.lastModified ? dateOf(f.lastModified) : $('date').value));
-  }
-  // A file chooser may only open straight from a tap, so the destination check is its own
-  // dialog whose "Yes" button opens the chooser (a modal confirm() can outlast the tap).
-  let pendingInput = null;
-  async function start(input) {
+  let plan = null;
+  $('reviewBtn').addEventListener('click', async () => {
+    const todo = waiting();
+    if (!todo.length) return warn('Add photos first.');
+    const missing = todo.filter((p) => !p.cat);
+    if (missing.length) {
+      todo.forEach((p) => { p.flag = !p.cat; });
+      renderGrid();
+      warn(`${missing.length} photo${missing.length === 1 ? ' needs' : 's need'} a type. They are outlined in red.`);
+      return;
+    }
     if (!signedIn()) {
       try { await signIn(); } catch (e) { return alert(e.message); }
-      return refreshReady();
+      refreshReady(); showCustomerHint();
+      return warn('Connected. Now pick the customer and job, then tap Review & upload again.');
     }
-    const p = problem();
-    if (p) { $('ready').textContent = p; $('ready').classList.add('warn'); return; }
-    if (confirmedJobId === job.id) return input.click();
-    pendingInput = input;
-    $('confirmWhere').textContent = `Contacts-Active / ${customer.name} / ${job.name} / Photos`;
-    $('confirmDlg').showModal();
-  }
-  $('confirmYes').addEventListener('click', () => {
-    confirmedJobId = job.id;
-    $('confirmDlg').close();
-    if (pendingInput) pendingInput.click();
-    pendingInput = null;
+    if (!customer) return warn('Pick the customer first.');
+    if (!job) return warn($('jobNote').textContent || 'Pick the job first.');
+    try {
+      const d = getDrive();
+      await d.verifyTarget(customer.id, job.id, job.photosId);
+      // Names continue after what is already in Drive, so numbers never collide.
+      const groups = new Map();
+      [...todo].sort((a, b) => (a.file.lastModified || 0) - (b.file.lastModified || 0) || a.id - b.id).forEach((p) => {
+        const ext = (p.file.name.match(/\.[A-Za-z0-9]+$/) || [''])[0] || (p.file.type === 'image/png' ? '.png' : '.jpg');
+        const base = { customer: customer.name, jobName: job.name, date: p.date, cat: catById(p.cat), area: p.area };
+        const stem = Naming.buildName({ ...base, seq: 0, ext: '' }).replace(/_000$/, '');
+        const key = `${stem}|${ext.toLowerCase()}`;
+        if (!groups.has(key)) groups.set(key, { base, stem, ext, items: [] });
+        groups.get(key).items.push(p);
+      });
+      const items = [];
+      for (const g of groups.values()) {
+        const start = await d.nextSeq(job.photosId, g.stem, g.ext);
+        g.items.forEach((p, i) => items.push({ p, name: Naming.buildName({ ...g.base, seq: start + i, ext: g.ext }) }));
+      }
+      plan = { customer, job, items };
+    } catch (e) { return warn(`Could not prepare the upload: ${e.message}`); }
+    $('reviewWhere').textContent = `Contacts-Active / ${customer.name} / ${job.name} / Photos`;
+    const ul = $('reviewList');
+    ul.innerHTML = '';
+    plan.items.forEach((i) => { const li = document.createElement('li'); li.textContent = i.name; ul.appendChild(li); });
+    $('reviewYes').textContent = `Upload ${plan.items.length} photo${plan.items.length === 1 ? '' : 's'}`;
+    $('reviewDlg').showModal();
   });
-  $('confirmNo').addEventListener('click', () => { pendingInput = null; $('confirmDlg').close(); });
-  $('takeBtn').addEventListener('click', () => start($('camera')));
-  $('pickBtn').addEventListener('click', () => start($('gallery')));
-  $('camera').addEventListener('change', () => handleFiles($('camera'), false));
-  $('gallery').addEventListener('change', () => handleFiles($('gallery'), true));
+  $('reviewNo').addEventListener('click', () => { plan = null; $('reviewDlg').close(); });
+  $('reviewYes').addEventListener('click', async () => {
+    const run = plan; plan = null;
+    $('reviewDlg').close();
+    if (!run || uploading) return;
+    uploading = true; refreshReady();
+    const d = getDrive();
+    for (const { p, name } of run.items) {
+      p.status = 'busy'; renderGrid();
+      const li = document.createElement('li');
+      try {
+        const finalName = await d.addPhoto(run.customer.id, run.job.id, run.job.photosId, name, p.file);
+        p.status = 'done'; selected.delete(p.id);
+        li.className = 'ok'; li.textContent = `✓ ${run.customer.name} / ${run.job.name} / Photos / ${finalName}`;
+      } catch (err) {
+        p.status = 'error';
+        li.className = 'err'; li.textContent = `✗ ${name}: ${err.message}${/^Blocked/.test(err.message) ? '' : ' (tap Review & upload to retry)'}`;
+        if (err.needsSignIn) li.textContent += ' Your Google sign-in expired.';
+      }
+      $('log').prepend(li);
+    }
+    uploading = false;
+    renderGrid();
+  });
 
   // ---- Settings -------------------------------------------------------------
   $('settingsBtn').addEventListener('click', () => $('settings').showModal());
   $('signOut').addEventListener('click', () => {
     if (token && window.google) google.accounts.oauth2.revoke(token.value, () => {});
-    token = null; customer = null; job = null; drive = null; confirmedJobId = null;
+    token = null; customer = null; job = null; drive = null;
     $('settings').close();
     $('customerChosen').hidden = true; $('customerPicker').hidden = false;
     $('customerSearch').value = ''; showCustomerHint();
@@ -287,7 +378,8 @@
     try { config = await (await fetch('config.default.json')).json(); } catch { /* offline first run */ }
     renderTypes();
     $('date').value = today();
-    refreshReady();
+    $('setDate').value = today();
+    renderGrid();
     const t = setInterval(() => { if (initAuth()) clearInterval(t); }, 300);
     setTimeout(() => clearInterval(t), 15000);
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
