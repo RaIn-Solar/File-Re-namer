@@ -72,7 +72,9 @@
   });
 
   // ---- Job + types ----------------------------------------------------------
-  const jobFolderName = () => [Naming.sanitize($('customer').value), Naming.sanitize($('jobName').value)].filter(Boolean).join('_');
+  // Drive folders use the names exactly as typed (e.g. "Inman, Rachel"), only tidying spaces.
+  const tidy = (s) => String(s || '').trim().replace(/\s+/g, ' ');
+  const jobFolderName = () => `${tidy($('customer').value)} / ${tidy($('jobName').value)}`;
   const savedJobs = () => store.get('jobs', []);
 
   function renderJobs() {
@@ -158,6 +160,7 @@
     const job = {
       customer: $('customer').value, jobName: $('jobName').value, area: $('area').value,
       cat: category, folderName: jobFolderName(), root: settings().rootFolder,
+      customerFolder: tidy($('customer').value), jobFolder: tidy($('jobName').value),
     };
     const li = document.createElement('li');
     $('log').prepend(li);
@@ -165,14 +168,16 @@
       li.className = 'busy'; li.textContent = 'Uploading…';
       try {
         const ext = (file.name.match(/\.[A-Za-z0-9]+$/) || [''])[0] || (file.type === 'image/png' ? '.png' : '.jpg');
-        const catFolder = Naming.sanitize(job.cat.label);
-        const dir = await drive.ensurePath(job.root, [job.folderName, catFolder]);
+        // Customer folders must already exist (a typo should not create a duplicate); the job folder is created if missing.
+        const customerId = await drive.findFolder(job.root, job.customerFolder);
+        if (!customerId) throw new Error(`No customer folder named “${job.customerFolder}” in Drive. Check the spelling (Last, First).`);
+        const dir = await drive.ensureFolder(customerId, job.jobFolder);
         // Sequence number comes from what's already in Drive, so names never collide.
         const stem = Naming.buildName({ ...job, date, seq: 0, ext: '' }).replace(/_000$/, '');
         const seq = await drive.nextSeq(dir, stem, ext);
         const name = Naming.buildName({ ...job, date, seq, ext });
         await drive.uploadFile(dir, name, file);
-        li.className = 'ok'; li.textContent = `✓ ${job.folderName} / ${catFolder} / ${name}`;
+        li.className = 'ok'; li.textContent = `✓ ${job.folderName} / ${name}`;
       } catch (err) {
         li.className = 'err';
         li.textContent = `✗ Not uploaded: ${err.message}`;

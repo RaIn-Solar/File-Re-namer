@@ -70,3 +70,12 @@ test('Drive errors carry the status and message', async () => {
   });
   await assert.rejects(drive.ensureFolder('r', 'x'), (e) => e.status === 403 && e.message === 'No access');
 });
+
+test('findFolder never creates; matches names with commas exactly', async () => {
+  const { items, drive } = fakeDrive();
+  assert.equal(await drive.findFolder('root', 'Inman, Rachel'), null);
+  assert.equal(items.length, 0);
+  const id = await drive.ensureFolder('root', 'Inman, Rachel');
+  assert.equal(await drive.findFolder('root', 'Inman, Rachel'), id);
+  assert.equal(await drive.findFolder('root', 'Inman, Rache'), null);
+});

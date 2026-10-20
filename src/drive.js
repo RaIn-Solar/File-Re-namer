@@ -48,10 +48,15 @@ function createDrive({ fetch, getToken }) {
     return out;
   }
 
+  async function findFolder(parentId, name) {
+    const found = await list(`mimeType='${FOLDER}' and trashed=false and ${q(parentId)} in parents and name=${q(name)}`);
+    return found.length ? found[0].id : null;
+  }
+
   // Finds a sub-folder by exact name or creates it.
   async function ensureFolder(parentId, name) {
-    const found = await list(`mimeType='${FOLDER}' and trashed=false and ${q(parentId)} in parents and name=${q(name)}`);
-    if (found.length) return found[0].id;
+    const existing = await findFolder(parentId, name);
+    if (existing) return existing;
     const made = await call(`${API}/files?supportsAllDrives=true&fields=id`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -96,7 +101,7 @@ function createDrive({ fetch, getToken }) {
     });
   }
 
-  return { ensureFolder, ensurePath, nextSeq, uploadFile, call };
+  return { findFolder, ensureFolder, ensurePath, nextSeq, uploadFile, call };
 }
 
 const driveApi = { parseFolderId, createDrive };
