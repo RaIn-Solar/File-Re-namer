@@ -23,6 +23,13 @@ function effectiveDate(photo) {
   return photo.dateOverride || photo.takenDate || null;
 }
 
+// <Customer>_<Job>_<date>_<Type>_<Area>_<###>.<ext>. Inputs are sanitized here
+// so the phone app and the desktop app always produce identical names.
+function buildName({ customer, jobName, date, cat, area, seq, ext }) {
+  const parts = [sanitize(customer), sanitize(jobName), date, cat.short || sanitize(cat.label), sanitize(area), pad(seq)];
+  return parts.filter(Boolean).join('_') + String(ext || '').toLowerCase();
+}
+
 // Plans the final file name for every included photo.
 //   photos: [{ id, ext, category (category id), area, takenDate, dateOverride, include, sortKey }]
 //   job:    { customer, jobName }
@@ -54,10 +61,9 @@ function planNames(photos, job, categories) {
     const seq = (counters.get(groupKey) || 0) + 1;
     counters.set(groupKey, seq);
 
-    const parts = [customer, jobName, date, cat.short || sanitize(cat.label), area, pad(seq)].filter(Boolean);
     plans.push({
       id: p.id,
-      newName: parts.join('_') + String(p.ext || '').toLowerCase(),
+      newName: buildName({ customer, jobName, date, cat, area, seq, ext: p.ext }),
       folder: sanitize(cat.label),
       date,
       categoryLabel: cat.label,
@@ -80,4 +86,7 @@ function summarizeDates(photos, expectedDate) {
   return rows;
 }
 
-module.exports = { sanitize, pad, effectiveDate, planNames, summarizeDates };
+const namingApi = { sanitize, pad, effectiveDate, buildName, planNames, summarizeDates };
+// Also loaded as a plain <script> by the phone app, where `module` does not exist.
+if (typeof module !== 'undefined') module.exports = namingApi;
+else globalThis.Naming = namingApi;

@@ -53,3 +53,13 @@ test('excluded photos are skipped; date summary flags non-visit dates', () => {
     { date: '2026-10-08', count: 1, matchesExpected: true },
   ]);
 });
+
+test('buildName matches what planNames produces (shared with the phone app)', () => {
+  const { buildName } = require('../src/naming');
+  const cat = cfg.categories.find((c) => c.id === 'inspection');
+  assert.equal(
+    buildName({ customer: 'Smith John', jobName: 'Roof Replacement', date: '2026-10-08', cat, area: 'Roof', seq: 7, ext: '.JPG' }),
+    'Smith-John_Roof-Replacement_2026-10-08_Inspection_Roof_007.jpg',
+  );
+  assert.equal(buildName({ customer: 'A', jobName: 'J', date: '2026-10-08', cat, area: '', seq: 1, ext: '.jpg' }), 'A_J_2026-10-08_Inspection_001.jpg');
+});

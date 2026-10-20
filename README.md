@@ -14,6 +14,9 @@ A short **tutorial** runs automatically the first time the app opens; replay it 
 
 Naming: `Smith-John_Roof-Replacement_2026-10-08_Inspection_Roof_001.jpg` — so a sales walkthrough roof photo (`…_SalesWalk_Roof_001`) never collides with an inspection one.
 
+## Phone app
+A phone version (installable web app) names photos with the same rules and uploads them straight to Google Drive, skipping the save-to-phone step. See [mobile/README.md](mobile/README.md).
+
 ## Customizing
 The photo-type colors are the `color` of each category. The app icon is `build/icon.png` (used for the window and the installer). Defaults live in `config.default.json`. To override (categories, short names, area suggestions), put the same keys in `config.json` in the app's user-data folder (`%APPDATA%\job-photo-organizer` on Windows). Saved jobs live in `saved-jobs.json` in that same folder.
 

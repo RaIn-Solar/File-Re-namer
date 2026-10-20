@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<title>Job Photos</title>
+</head>
+<body>
+<header>
+  <h1>Job Photos</h1>
+  <button id="settingsBtn" class="ghost" aria-label="Settings">Settings</button>
+</header>
+
+<main>
+  <section class="card" id="connectCard">
+    <h2>Connect</h2>
+    <p class="hint" id="connectMsg">Sign in to Google to load the customer list.</p>
+    <button id="connectBtn" class="primary">Connect Google Drive</button>
+  </section>
+
+  <section class="card" id="customerCard" hidden>
+    <h2>1. Customer</h2>
+    <div id="customerChosen" hidden>
+      <b id="customerName"></b> <button id="changeCustomer" class="ghost">Change</button>
+    </div>
+    <div id="customerPicker">
+      <input id="customerSearch" type="search" autocomplete="off" placeholder="Search customer (Last, First)">
+      <ul id="customerList" class="pick"></ul>
+    </div>
+  </section>
+
+  <section class="card" id="jobCard" hidden>
+    <h2>Job</h2>
+    <div id="jobChosen" hidden>
+      <b id="jobNameLabel"></b> <button id="changeJob" class="ghost">Change</button>
+    </div>
+    <p class="hint" id="jobNote"></p>
+    <div id="jobPicker">
+      <input id="jobSearch" type="search" autocomplete="off" placeholder="Search job">
+      <ul id="jobList" class="pick"></ul>
+    </div>
+    <label>Photo date <input id="date" type="date"></label>
+  </section>
+
+  <section class="card">
+    <h2>2. What are the photos for?</h2>
+    <div id="types" class="types"></div>
+    <label>Area (optional) <input id="area" autocomplete="off" placeholder="Roof, Meter…"></label>
+    <div id="areaChips" class="chips"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Take or choose photos</h2>
+    <p class="hint" id="ready">Fill in the job and pick a type.</p>
+    <div class="row">
+      <button id="takeBtn" class="primary" disabled>Take photo</button>
+      <button id="pickBtn" class="primary alt" disabled>Choose from gallery</button>
+    </div>
+    <input id="camera" type="file" accept="image/*" capture="environment" hidden>
+    <input id="gallery" type="file" accept="image/*" multiple hidden>
+    <ul id="log" class="log"></ul>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2>Settings</h2>
+    <p class="hint">Photos go to <b>Contacts-Active / Customer / Job / Photos /</b>. Nothing is saved on this phone, nothing is ever deleted or replaced, and folders are never created.</p>
+    <button type="button" id="signOut" class="ghost">Sign out of Google</button>
+    <button value="cancel" class="ghost">Close</button>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script src="naming.js"></script>
+<script src="drive.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
+</body>
+</html>
