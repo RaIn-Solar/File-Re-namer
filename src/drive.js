@@ -7,14 +7,15 @@
 //     delete, trash, move, rename or overwrite, and `call` refuses anything else.
 //  2. No folders are ever created. Customer and job folders must already exist.
 //  3. Locked location: every upload re-checks, directly with Drive, that the target is
-//     a real, non-trashed folder exactly two levels below the fixed root
-//     (root > customer > job) before anything is written.
+//     a real, non-trashed folder chain root > customer > job > Photos (all existing)
+//     before anything is written.
 //  4. A file is never replaced: if the name is taken the new file gets _v2, _v3, ...
 //  5. Optional allow-list of customer folder names (used while testing).
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 const FOLDER = 'application/vnd.google-apps.folder';
+const PHOTOS = 'photos';
 
 // Accepts a Drive folder link (…/folders/<id>?…, …?id=<id>) or a bare id.
 function parseFolderId(input) {
@@ -87,9 +88,18 @@ function createDrive({ fetch, getToken, rootId, allowedCustomers = [] }) {
     fields: 'id,name,mimeType,trashed,parents', supportsAllDrives: 'true',
   })}`);
 
-  // Re-reads both folders from Drive and proves root > customer > job. Returns their names.
-  async function verifyTarget(customerId, jobId) {
-    const [customer, job] = await Promise.all([getFolder(customerId), getFolder(jobId)]);
+  // The job's existing "Photos" folder (created by the company's own process, never by this app).
+  async function findPhotosFolder(jobId) {
+    const match = (await listFolders(jobId)).filter((f) => f.name.trim().toLowerCase() === PHOTOS);
+    if (match.length !== 1) {
+      throw new Error(match.length ? 'This job has more than one Photos folder.' : 'This job has no Photos folder yet.');
+    }
+    return match[0];
+  }
+
+  // Re-reads the folders from Drive and proves root > customer > job > Photos. Returns their names.
+  async function verifyTarget(customerId, jobId, photosId) {
+    const [customer, job, photos] = await Promise.all([getFolder(customerId), getFolder(jobId), getFolder(photosId)]);
     const ok = (f) => f && f.mimeType === FOLDER && !f.trashed;
     if (!ok(customer) || !(customer.parents || []).includes(rootId)) {
       throw new Error('Blocked: that customer folder is not directly inside Contacts-Active.');
@@ -100,12 +110,15 @@ function createDrive({ fetch, getToken, rootId, allowedCustomers = [] }) {
     if (!ok(job) || !(job.parents || []).includes(customerId)) {
       throw new Error('Blocked: that job folder is not directly inside the customer folder.');
     }
+    if (!ok(photos) || photos.name.trim().toLowerCase() !== PHOTOS || !(photos.parents || []).includes(jobId)) {
+      throw new Error('Blocked: that is not the Photos folder inside the job folder.');
+    }
     return { customer: customer.name, job: job.name };
   }
 
-  // Next sequence number for names like <prefix>_<###>.<ext> already in the job folder.
-  async function nextSeq(jobId, prefix, ext) {
-    const files = await list(`${q(jobId)} in parents and trashed=false`);
+  // Next sequence number for names like <prefix>_<###>.<ext> already in the Photos folder.
+  async function nextSeq(photosId, prefix, ext) {
+    const files = await list(`${q(photosId)} in parents and trashed=false`);
     let max = 0;
     for (const f of files) {
       if (!f.name.startsWith(prefix + '_') || !f.name.toLowerCase().endsWith(ext.toLowerCase())) continue;
@@ -115,16 +128,16 @@ function createDrive({ fetch, getToken, rootId, allowedCustomers = [] }) {
     return max + 1;
   }
 
-  // Creates a NEW file in the job folder after re-verifying the location. Never replaces:
+  // Creates a NEW file in the job's Photos folder after re-verifying the location. Never replaces:
   // a taken name becomes name_v2, name_v3, ... Returns the final name.
-  async function addPhoto(customerId, jobId, name, blob) {
-    await verifyTarget(customerId, jobId);
-    const taken = new Set((await list(`${q(jobId)} in parents and trashed=false`)).map((f) => f.name.toLowerCase()));
+  async function addPhoto(customerId, jobId, photosId, name, blob) {
+    await verifyTarget(customerId, jobId, photosId);
+    const taken = new Set((await list(`${q(photosId)} in parents and trashed=false`)).map((f) => f.name.toLowerCase()));
     let finalName = name;
     for (let n = 2; taken.has(finalName.toLowerCase()); n++) finalName = versionedName(name, n);
 
     const boundary = 'photo' + Math.random().toString(36).slice(2);
-    const meta = JSON.stringify({ name: finalName, parents: [jobId] });
+    const meta = JSON.stringify({ name: finalName, parents: [photosId] });
     const body = new Blob([
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n`,
       `--${boundary}\r\nContent-Type: ${blob.type || 'image/jpeg'}\r\n\r\n`,
@@ -139,7 +152,7 @@ function createDrive({ fetch, getToken, rootId, allowedCustomers = [] }) {
     return finalName;
   }
 
-  return { listCustomers, listJobs, verifyTarget, nextSeq, addPhoto, call };
+  return { listCustomers, listJobs, findPhotosFolder, verifyTarget, nextSeq, addPhoto, call };
 }
 
 const driveApi = { parseFolderId, versionedName, createDrive };

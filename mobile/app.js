@@ -124,10 +124,16 @@
     }
     refreshReady();
   }
-  function pickJob(j) {
-    job = j;
+  async function pickJob(j) {
+    job = null;
     $('jobNameLabel').textContent = j.name;
     $('jobChosen').hidden = false; $('jobPicker').hidden = true;
+    $('jobNote').textContent = 'Checking for the Photos folder…';
+    refreshReady();
+    try {
+      const photos = await getDrive().findPhotosFolder(j.id);
+      if (customer && $('jobNameLabel').textContent === j.name) { job = { ...j, photosId: photos.id }; $('jobNote').textContent = ''; }
+    } catch (e) { $('jobNote').textContent = e.message; }
     refreshReady();
   }
   $('changeCustomer').addEventListener('click', () => {
@@ -165,7 +171,7 @@
   function problem() {
     if (!signedIn()) return 'Connect Google Drive first.';
     if (!customer) return 'Pick the customer.';
-    if (!job) return 'Pick the job.';
+    if (!job) return $('jobChosen').hidden ? 'Pick the job.' : ($('jobNote').textContent || 'Checking the job…');
     if (!$('date').value) return 'Pick the photo date.';
     if (!category) return 'Pick what the photos are for.';
     return '';
@@ -176,7 +182,7 @@
     $('customerCard').hidden = !connected;
     if (!connected) $('jobCard').hidden = true;
     const p = problem();
-    $('ready').textContent = p || `Ready: ${customer.name} / ${job.name} / ${category.label}`;
+    $('ready').textContent = p || `Ready: ${customer.name} / ${job.name} / Photos`;
     $('takeBtn').disabled = $('pickBtn').disabled = !!p;
   }
   $('date').addEventListener('input', refreshReady);
@@ -199,13 +205,13 @@
       try {
         const ext = (file.name.match(/\.[A-Za-z0-9]+$/) || [''])[0] || (file.type === 'image/png' ? '.png' : '.jpg');
         const d = getDrive();
-        await d.verifyTarget(t.customer.id, t.job.id);
+        await d.verifyTarget(t.customer.id, t.job.id, t.job.photosId);
         const fields = { customer: t.customer.name, jobName: t.job.name, date, cat: t.cat, area: t.area, ext };
         // Sequence comes from what is already in Drive, so names don't collide across phones.
         const stem = Naming.buildName({ ...fields, seq: 0, ext: '' }).replace(/_000$/, '');
-        const seq = await d.nextSeq(t.job.id, stem, ext);
-        const name = await d.addPhoto(t.customer.id, t.job.id, Naming.buildName({ ...fields, seq }), file);
-        li.className = 'ok'; li.textContent = `✓ ${t.customer.name} / ${t.job.name} / ${name}`;
+        const seq = await d.nextSeq(t.job.photosId, stem, ext);
+        const name = await d.addPhoto(t.customer.id, t.job.id, t.job.photosId, Naming.buildName({ ...fields, seq }), file);
+        li.className = 'ok'; li.textContent = `✓ ${t.customer.name} / ${t.job.name} / Photos / ${name}`;
       } catch (err) {
         li.className = 'err';
         li.textContent = `✗ Not uploaded: ${err.message}`;
@@ -235,7 +241,7 @@
     if (problem()) return;
     // Confirm the destination once per job so a wrong tap can't send photos to the wrong customer.
     if (confirmedJobId !== job.id) {
-      if (!confirm(`Add photos to:\n\nContacts-Active / ${customer.name} / ${job.name}\n\nIs this correct?`)) return;
+      if (!confirm(`Add photos to:\n\nContacts-Active / ${customer.name} / ${job.name} / Photos\n\nIs this correct?`)) return;
       confirmedJobId = job.id;
     }
     input.click();
