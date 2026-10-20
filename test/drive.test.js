@@ -55,20 +55,33 @@ function fakeDrive(opts = {}) {
     const query = u.searchParams.get('q');
     const parent = query.match(/'([^']+)' in parents/)[1];
     const folderOnly = query.includes('mimeType=');
-    return json({ files: items.filter((i) => i.parents.includes(parent) && !i.trashed && (!folderOnly || i.mimeType === FOLDER)) });
+    const terms = [...query.matchAll(/name contains '([^']*)'/g)].map((m) => m[1].toLowerCase());
+    return json({ files: items.filter((i) => i.parents.includes(parent) && !i.trashed && (!folderOnly || i.mimeType === FOLDER)
+      && terms.every((t) => i.name.toLowerCase().includes(t))) });
   };
   return { items, calls, drive: createDrive({ fetch, getToken: async () => 'tok', rootId: 'root', ...opts }) };
 }
 
-test('lists customers and jobs under the fixed root only', async () => {
+test('customers are only found by typed text, never listed up front', async () => {
+  const { drive, calls } = fakeDrive();
+  for (const none of ['', ' ', 'a', ' , ']) assert.deepEqual(await drive.searchCustomers(none), []);
+  assert.equal(calls.length, 0); // too-short input does not even ask Drive
+  assert.deepEqual((await drive.searchCustomers('inm')).map((c) => c.name), ['Inman, Rachel']);
+  assert.deepEqual((await drive.searchCustomers('Inman, Rachel')).map((c) => c.name), ['Inman, Rachel']);
+  assert.deepEqual((await drive.searchCustomers('sm jo')).map((c) => c.name), ['Smith, John']);
+  assert.deepEqual(await drive.searchCustomers('zzz'), []);
+  assert.equal(drive.listCustomers, undefined);
+});
+
+test('jobs are listed for a chosen customer only', async () => {
   const { drive } = fakeDrive();
-  assert.deepEqual((await drive.listCustomers()).map((c) => c.name), ['Inman, Rachel', 'Smith, John']);
   assert.deepEqual((await drive.listJobs('c1')).map((j) => j.name), ['Roof']); // trashed folder hidden
 });
 
 test('allow-list hides other customers and blocks writing to them', async () => {
   const { drive, items } = fakeDrive({ allowedCustomers: ['Inman, Rachel'] });
-  assert.deepEqual((await drive.listCustomers()).map((c) => c.name), ['Inman, Rachel']);
+  assert.deepEqual((await drive.searchCustomers('smith')).map((c) => c.name), []);
+  assert.deepEqual((await drive.searchCustomers('inman')).map((c) => c.name), ['Inman, Rachel']);
   await assert.rejects(drive.addPhoto('c2', 'j2', 'p2', 'x.jpg', new Blob(['x'])), /limited to Inman, Rachel/);
   assert.equal(items.filter((i) => i.mimeType === 'image/jpeg').length, 0);
 });
@@ -129,7 +142,7 @@ test('Drive errors carry the status and message', async () => {
     fetch: async () => ({ ok: false, status: 403, json: async () => ({ error: { message: 'No access' } }) }),
     getToken: async () => 't', rootId: 'root',
   });
-  await assert.rejects(drive.listCustomers(), (e) => e.status === 403 && e.message === 'No access');
+  await assert.rejects(drive.searchCustomers('inman'), (e) => e.status === 403 && e.message === 'No access');
 });
 
 test('finds the existing Photos folder; never creates one', async () => {

@@ -96,22 +96,33 @@
     }
   }
   let jobs = [];
-  const renderCustomers = () => renderList($('customerList'), customers, $('customerSearch').value, pickCustomer);
   const renderJobs = () => renderList($('jobList'), jobs, $('jobSearch').value, pickJob);
-  $('customerSearch').addEventListener('input', renderCustomers);
   $('jobSearch').addEventListener('input', renderJobs);
 
-  async function loadCustomers() {
-    $('customerList').innerHTML = '<li class="hint">Loading customers…</li>';
-    try {
-      customers = await getDrive().listCustomers();
-      renderCustomers();
-    } catch (e) {
-      $('customerList').innerHTML = '';
-      const li = document.createElement('li'); li.className = 'hint'; li.textContent = `Could not load customers: ${e.message}`;
-      $('customerList').appendChild(li);
-    }
-  }
+  // Customers are only looked up for what is typed; nothing is listed up front.
+  const hint = (ul, text) => { ul.innerHTML = ''; const li = document.createElement('li'); li.className = 'hint'; li.textContent = text; ul.appendChild(li); };
+  let searchTimer = null;
+  let searchId = 0;
+  function showCustomerHint() { hint($('customerList'), 'Type at least 2 letters of the customer name.'); }
+  $('customerSearch').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const text = $('customerSearch').value;
+    const mine = ++searchId;
+    if (text.replace(/[\s,]/g, '').length < 2) return showCustomerHint();
+    hint($('customerList'), 'Searching…');
+    searchTimer = setTimeout(async () => {
+      try {
+        const found = await getDrive().searchCustomers(text);
+        if (mine !== searchId) return; // a newer search replaced this one
+        customers = found;
+        if (!found.length) return hint($('customerList'), 'No customer found. Check the spelling.');
+        renderList($('customerList'), found, '', pickCustomer);
+      } catch (e) {
+        if (mine === searchId) hint($('customerList'), `Could not search: ${e.message}`);
+      }
+    }, 300);
+  });
+
   async function pickCustomer(c) {
     customer = c; job = null; jobs = [];
     $('customerName').textContent = c.name;
@@ -137,9 +148,9 @@
     refreshReady();
   }
   $('changeCustomer').addEventListener('click', () => {
-    customer = null; job = null;
+    customer = null; job = null; customers = [];
     $('customerChosen').hidden = true; $('customerPicker').hidden = false; $('jobCard').hidden = true;
-    renderCustomers(); refreshReady();
+    $('customerSearch').value = ''; showCustomerHint(); refreshReady();
   });
   $('changeJob').addEventListener('click', () => {
     job = null; $('jobChosen').hidden = true; $('jobPicker').hidden = false; renderJobs(); refreshReady();
@@ -183,14 +194,14 @@
     if (!connected) $('jobCard').hidden = true;
     const p = problem();
     $('ready').textContent = p || `Ready: ${customer.name} / ${job.name} / Photos`;
-    $('takeBtn').disabled = $('pickBtn').disabled = !!p;
+    $('ready').classList.remove('warn');
   }
   $('date').addEventListener('input', refreshReady);
 
   $('connectBtn').addEventListener('click', async () => {
     try { await signIn(); } catch (e) { return alert(e.message); }
     refreshReady();
-    loadCustomers();
+    showCustomerHint();
   });
 
   // ---- Uploading ------------------------------------------------------------
@@ -233,19 +244,28 @@
     input.value = '';
     files.forEach((f) => enqueue(f, useOwnDate && f.lastModified ? dateOf(f.lastModified) : $('date').value));
   }
+  // A file chooser may only open straight from a tap, so the destination check is its own
+  // dialog whose "Yes" button opens the chooser (a modal confirm() can outlast the tap).
+  let pendingInput = null;
   async function start(input) {
     if (!signedIn()) {
       try { await signIn(); } catch (e) { return alert(e.message); }
       return refreshReady();
     }
-    if (problem()) return;
-    // Confirm the destination once per job so a wrong tap can't send photos to the wrong customer.
-    if (confirmedJobId !== job.id) {
-      if (!confirm(`Add photos to:\n\nContacts-Active / ${customer.name} / ${job.name} / Photos\n\nIs this correct?`)) return;
-      confirmedJobId = job.id;
-    }
-    input.click();
+    const p = problem();
+    if (p) { $('ready').textContent = p; $('ready').classList.add('warn'); return; }
+    if (confirmedJobId === job.id) return input.click();
+    pendingInput = input;
+    $('confirmWhere').textContent = `Contacts-Active / ${customer.name} / ${job.name} / Photos`;
+    $('confirmDlg').showModal();
   }
+  $('confirmYes').addEventListener('click', () => {
+    confirmedJobId = job.id;
+    $('confirmDlg').close();
+    if (pendingInput) pendingInput.click();
+    pendingInput = null;
+  });
+  $('confirmNo').addEventListener('click', () => { pendingInput = null; $('confirmDlg').close(); });
   $('takeBtn').addEventListener('click', () => start($('camera')));
   $('pickBtn').addEventListener('click', () => start($('gallery')));
   $('camera').addEventListener('change', () => handleFiles($('camera'), false));
@@ -258,6 +278,7 @@
     token = null; customer = null; job = null; drive = null; confirmedJobId = null;
     $('settings').close();
     $('customerChosen').hidden = true; $('customerPicker').hidden = false;
+    $('customerSearch').value = ''; showCustomerHint();
     refreshReady();
   });
 
