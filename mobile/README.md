@@ -16,7 +16,7 @@ Photos live only in the page, so closing it before uploading loses them (the app
 - Only reads and brand-new file uploads can leave the app. There is no delete, trash, move, rename or overwrite code.
 - Before every upload the app re-checks with Drive that the target is exactly `Contacts-Active > customer > job > Photos`.
 - A file is never replaced: a taken name gets `_v2`, `_v3`, … and both are kept.
-- The Contacts-Active folder id is fixed in `mobile/config.js`. Testing lock: `allowedCustomers` limits the app to `Inman, Rachel` until it is cleared at go-live.
+- The Contacts-Active folder id is fixed in `mobile/config.js`. `allowedCustomers` in `mobile/config.js` can limit the app to specific customer folders (the testing lock, empty since go-live on 2026-10-20).
 - Google cannot limit an app to one folder tree, so these protections are in the app's code, not in Google's permissions.
 
 ## One-time setup (owner)
