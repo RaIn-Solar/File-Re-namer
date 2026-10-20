@@ -46,3 +46,10 @@ dialog form { display:grid; gap:10px; }
 .thumb .tag { position:absolute; left:0; right:0; bottom:0; padding:2px 4px; font-size:.7rem; font-weight:600; color:#fff; text-align:left; line-height:1.15; background:#6b7280; }
 .thumb .st { position:absolute; top:4px; right:4px; background:#fff; border-radius:999px; padding:0 6px; font-size:.8rem; font-weight:700; }
 .review { max-height:40vh; overflow:auto; }
+/* Review pop-up: same dark color as the main Upload button so it is obvious this is the final step. */
+#reviewDlg { background:#1f2937; color:#fff; }
+#reviewDlg::backdrop { background:rgba(17,24,39,.6); }
+#reviewDlg .hint { color:#cbd5e1; }
+#reviewDlg .log li { background:rgba(255,255,255,.1); color:#fff; }
+#reviewDlg #reviewYes { background:#dbeafe; color:#1f2937; border-color:#dbeafe; }
+#reviewDlg #reviewNo { background:transparent; color:#fff; border-color:rgba(255,255,255,.55); }
