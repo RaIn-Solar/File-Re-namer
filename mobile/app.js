@@ -373,6 +373,25 @@
     refreshReady();
   });
 
+  // ---- Tutorial -------------------------------------------------------------
+  const TOUR_STEPS = [
+    { title: 'Welcome to Job Photos', text: 'This short tour shows how to send job-site photos straight to the customer\u2019s Google Drive folder. Tap Next to move on, or Skip to close it.' },
+    { target: '#connectCard', title: 'Connect Google Drive', text: 'Sign in once with your company Google account. After that the customer search works. You\u2019ll only need to sign in again if the app asks.' },
+    { target: '#customerCard', title: '1. Find the customer', text: 'Type at least 2 letters of the customer\u2019s name (Last, First) and tap the match. Customers only appear as you type, and only existing customer folders can be used.' },
+    { target: '#jobCard', title: '2. Pick the job', text: 'Pick one of that customer\u2019s jobs. The app checks the job has a Photos folder; that\u2019s where everything will go. The date box sets the date for photos you take with the camera.' },
+    { target: '#addRow', title: '3. Add all the photos first', text: 'Tap Take photo (again for each new one) or Choose from gallery. Photos collect below and nothing is uploaded yet. Photos taken here are not saved on your phone, so don\u2019t close the page before uploading.' },
+    { target: '#grid', title: 'Select photos', text: 'Tap a photo to select it (tap again to deselect). Use Select all or Unlabeled to select several at once. Each photo shows its type and area, and red means it still needs a type.' },
+    { target: '#labelCard', title: '4. Label the selected photos', text: 'With photos selected, tap a type such as Inspection. Every type has its own color. You can also set an area like Roof or Meter, or a different date. The type, area and date all become part of the file name. This section appears once you\u2019ve added photos.' },
+    { target: '#reviewBtn', title: '5. Review & upload', text: 'When every photo has a type, tap this to see the final file names and where they\u2019re going, then confirm. Nothing already in Drive is ever replaced or deleted; a name that\u2019s already taken gets _v2, _v3, and so on.' },
+    { target: '#tutorialBtn', pulse: true, doneLabel: 'Got it', title: 'Want to see this again?', text: 'That\u2019s the whole process! Replay this tutorial any time with the Tutorial button at the top.' },
+  ];
+  const tourSeen = () => { try { return localStorage.getItem('tutorialSeen') === '1'; } catch { return false; } };
+  function runTour() {
+    try { localStorage.setItem('tutorialSeen', '1'); } catch { /* ignore */ }
+    window.Tour.start(TOUR_STEPS);
+  }
+  $('tutorialBtn').addEventListener('click', runTour);
+
   // ---- Start ----------------------------------------------------------------
   async function init() {
     try { config = await (await fetch('config.default.json')).json(); } catch { /* offline first run */ }
@@ -382,6 +401,7 @@
     renderGrid();
     const t = setInterval(() => { if (initAuth()) clearInterval(t); }, 300);
     setTimeout(() => clearInterval(t), 15000);
+    if (!tourSeen()) runTour(); // first time on this phone
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   init();
