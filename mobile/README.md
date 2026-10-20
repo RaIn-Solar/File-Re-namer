@@ -4,6 +4,14 @@ An installable web app for Android (works in Chrome). The worker picks the job a
 
 Drive layout: `Contacts-Active/<Last, First>/<Job name>/Photos/<Customer>_<Job>_<date>_<Type>_<Area>_<###>.jpg`. The worker searches for and picks an **existing** customer and job; the app never creates folders, and each job must already have its `Photos` folder.
 
+## How it works
+1. Pick the customer (search) and the job.
+2. **Add all the photos first** (Take photo, repeated, and/or Choose from gallery). They collect as thumbnails; nothing is uploaded yet.
+3. Tap thumbnails to select them, then tap a type (and optionally an area / date). Labeled photos show the type's color.
+4. **Review & upload** lists every final file name and the destination. It is blocked while any photo has no type.
+
+Photos live only in the page, so closing it before uploading loses them (the app warns first).
+
 ## Data safety (enforced in `src/drive.js`, covered by tests)
 - Only reads and brand-new file uploads can leave the app. There is no delete, trash, move, rename or overwrite code.
 - Before every upload the app re-checks with Drive that the target is exactly `Contacts-Active > customer > job > Photos`.

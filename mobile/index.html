@@ -44,36 +44,59 @@
       <input id="jobSearch" type="search" autocomplete="off" placeholder="Search job">
       <ul id="jobList" class="pick"></ul>
     </div>
-    <label>Photo date <input id="date" type="date"></label>
+    <label>Date for new photos taken here <input id="date" type="date"></label>
   </section>
 
   <section class="card">
-    <h2>2. What are the photos for?</h2>
-    <div id="types" class="types"></div>
-    <label>Area (optional) <input id="area" autocomplete="off" placeholder="Roof, Meter…"></label>
-    <div id="areaChips" class="chips"></div>
-  </section>
-
-  <section class="card">
-    <h2>3. Take or choose photos</h2>
-    <p class="hint" id="ready">Fill in the job and pick a type.</p>
+    <h2>Photos</h2>
+    <p class="hint">Add all your photos first, then label them. Nothing is uploaded until you review.</p>
     <div class="row">
       <button id="takeBtn" class="primary">Take photo</button>
       <button id="pickBtn" class="primary alt">Choose from gallery</button>
     </div>
     <input id="camera" type="file" accept="image/*" capture="environment" hidden>
     <input id="gallery" type="file" accept="image/*" multiple hidden>
+    <div class="row bar" id="selBar" hidden>
+      <span id="selCount" class="hint"></span>
+      <button id="selAll" class="ghost">Select all</button>
+      <button id="selNone" class="ghost">Select none</button>
+      <button id="selUnlabeled" class="ghost">Unlabeled</button>
+    </div>
+    <div id="grid" class="grid"></div>
+    <button id="clearDone" class="ghost" hidden>Clear uploaded photos from the list</button>
+  </section>
+
+  <section class="card" id="labelCard" hidden>
+    <h2>Label the selected photos</h2>
+    <p class="hint" id="labelHint">Tap photos above to select them, then pick a type.</p>
+    <div id="types" class="types"></div>
+    <label>Area (optional) <input id="area" autocomplete="off" placeholder="Roof, Meter…"></label>
+    <div id="areaChips" class="chips"></div>
+    <div class="row">
+      <button id="setArea" class="ghost">Set area for selected</button>
+      <button id="clearArea" class="ghost">Clear area</button>
+    </div>
+    <label>Date for selected <input id="setDate" type="date"></label>
+    <button id="removeSel" class="ghost">Remove selected from this list</button>
+  </section>
+
+  <section class="card">
+    <h2>Upload</h2>
+    <p class="hint" id="ready"></p>
+    <button id="reviewBtn" class="primary">Review &amp; upload</button>
     <ul id="log" class="log"></ul>
   </section>
 </main>
 
-<dialog id="confirmDlg">
+<dialog id="reviewDlg">
   <div class="dlg">
-    <h2>Add photos here?</h2>
-    <p id="confirmWhere"></p>
+    <h2>Upload these photos?</h2>
+    <p>To <b id="reviewWhere"></b></p>
+    <ul id="reviewList" class="log review"></ul>
+    <p class="hint">Existing files are never replaced; a name already taken gets _v2, _v3…</p>
     <div class="row">
-      <button type="button" id="confirmYes" class="primary">Yes, add photos</button>
-      <button type="button" id="confirmNo" class="ghost">Cancel</button>
+      <button type="button" id="reviewYes" class="primary">Upload</button>
+      <button type="button" id="reviewNo" class="ghost">Cancel</button>
     </div>
   </div>
 </dialog>
