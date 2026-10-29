@@ -34,7 +34,7 @@
     "heic-convert": "^2.1.0"
   },
   "devDependencies": {
-    "electron": "44.9.3",
+    "electron": "45.0.0",
     "electron-builder": "26.15.3"
   },
   "license": "UNLICENSED"
